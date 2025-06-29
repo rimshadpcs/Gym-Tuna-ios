@@ -4,7 +4,6 @@ import Combine
 struct NavGraph: View {
     @StateObject private var coordinator = NavCoordinator()
     @StateObject private var workoutSessionManager = WorkoutSessionManager()
-    @StateObject private var exerciseSelectionManager = ExerciseSelectionManager()
     @ObservedObject var authViewModel: AuthViewModel
     let authRepository: AuthRepository
     let workoutRepository: WorkoutRepository
@@ -78,11 +77,10 @@ struct NavGraph: View {
                     let routeParameters = coordinator.getRouteParameters(coordinator.currentRoute)
                     let routineId = routeParameters["routineId"]
                     
-                    CreateRoutineView(
+                    let createRoutineView = CreateRoutineView(
                         workoutRepository: workoutRepository,
                         authRepository: authRepository,
                         routineId: routineId,
-                        exerciseSelectionManager: exerciseSelectionManager,
                         onBack: {
                             coordinator.pop()
                         },
@@ -97,19 +95,27 @@ struct NavGraph: View {
                         }
                     )
                     
+                    // Store reference for direct exercise addition (matching Android pattern)
+                    coordinator.setCreateRoutineView(createRoutineView)
+                    
+                    createRoutineView
+                    
                 case .exerciseSearch:
                     ExerciseSearchView(
                         exerciseRepository: exerciseRepository,
-                        exerciseSelectionManager: exerciseSelectionManager,
                         onBack: {
                             print("🔙 NavGraph: ExerciseSearch - Back button tapped")
                             coordinator.pop()
                         },
                         onExerciseSelected: { exercise in
-                            print("🚀 NavGraph: Exercise selected: \(exercise.name) → Setting in ExerciseSelectionManager")
-                            exerciseSelectionManager.selectExercise(exercise)
-                            print("🔙 NavGraph: Navigating back to CreateRoutine")
-                            coordinator.pop()
+                            print("🚀 NavGraph: Exercise selected: \(exercise.name) → Calling CreateRoutineView.addExercise() directly")
+                            if let createRoutineView = coordinator.getCreateRoutineView() {
+                                createRoutineView.addExercise(exercise)
+                                print("🔙 NavGraph: Navigating back to CreateRoutine")
+                                coordinator.pop()
+                            } else {
+                                print("❌ NavGraph: No CreateRoutineView reference found!")
+                            }
                         },
                         onCreateExercise: {
                             coordinator.navigate(to: .createExercise)

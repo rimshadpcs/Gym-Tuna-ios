@@ -33,7 +33,8 @@ class CreateRoutineViewModel: ObservableObject {
     
     // MARK: - Initialization
     
-    init(workoutRepository: WorkoutRepository, authRepository: AuthRepository, routineId: String? = nil, exerciseSelectionManager: ExerciseSelectionManager? = nil) {
+    init(workoutRepository: WorkoutRepository, authRepository: AuthRepository, routineId: String? = nil) {
+        print("🏗️ CreateRoutineViewModel: Initializing ViewModel for routineId: \(routineId ?? "new")")
         self.workoutRepository = workoutRepository
         self.authRepository = authRepository
         self.routineId = routineId

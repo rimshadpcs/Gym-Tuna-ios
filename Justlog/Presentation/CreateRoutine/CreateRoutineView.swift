@@ -10,7 +10,6 @@ import SwiftUI
 struct CreateRoutineView: View {
     @StateObject private var viewModel: CreateRoutineViewModel
     @Environment(\.dismiss) private var dismiss
-    @ObservedObject private var exerciseSelectionManager: ExerciseSelectionManager
     
     // UI feedback state
     @State private var showExerciseAddedFeedback = false
@@ -24,23 +23,39 @@ struct CreateRoutineView: View {
     
     private let routineId: String?
     
+    // Public function to add exercise (matching Android pattern)
+    func addExercise(_ exercise: Exercise) {
+        print("🎯 CreateRoutineView: Exercise selected via direct callback: \(exercise.name)")
+        viewModel.addExercise(exercise)
+        
+        // Show UI feedback
+        addedExerciseName = exercise.name
+        withAnimation(.easeInOut(duration: 0.3)) {
+            showExerciseAddedFeedback = true
+        }
+        
+        // Hide feedback after 2 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            withAnimation(.easeInOut(duration: 0.3)) {
+                showExerciseAddedFeedback = false
+            }
+        }
+    }
+    
     init(
         workoutRepository: WorkoutRepository,
         authRepository: AuthRepository,
         routineId: String? = nil,
-        exerciseSelectionManager: ExerciseSelectionManager,
         onBack: @escaping () -> Void,
         onRoutineCreated: @escaping () -> Void,
         onAddExercise: @escaping () -> Void,
         onNavigateToSubscription: @escaping () -> Void
     ) {
         self.routineId = routineId
-        self.exerciseSelectionManager = exerciseSelectionManager
         let viewModel = CreateRoutineViewModel(
             workoutRepository: workoutRepository,
             authRepository: authRepository,
-            routineId: routineId,
-            exerciseSelectionManager: exerciseSelectionManager
+            routineId: routineId
         )
         self._viewModel = StateObject(wrappedValue: viewModel)
         
@@ -56,6 +71,7 @@ struct CreateRoutineView: View {
                 .ignoresSafeArea()
                 .onAppear {
                     print("🏗️ CreateRoutineView: View appeared. Current exercises: \(viewModel.selectedExercises.count)")
+                    print("🏗️ CreateRoutineView: Exercise details: \(viewModel.selectedExercises.map { $0.name })")
                 }
             
             VStack(spacing: 0) {
@@ -128,34 +144,6 @@ struct CreateRoutineView: View {
         } message: {
             if let errorMessage = viewModel.errorMessage {
                 Text(errorMessage)
-            }
-        }
-        .onReceive(exerciseSelectionManager.$selectedExercise) { exercise in
-            if let exercise = exercise, exerciseSelectionManager.isNewSelection(exercise) {
-                print("🎯 CreateRoutineView: NEW exercise selected via ExerciseSelectionManager: \(exercise.name)")
-                print("📝 CreateRoutineView: Current exercises before add: \(viewModel.selectedExercises.count)")
-                viewModel.addExercise(exercise)
-                print("📝 CreateRoutineView: Current exercises after add: \(viewModel.selectedExercises.count)")
-                
-                // Show UI feedback
-                addedExerciseName = exercise.name
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    showExerciseAddedFeedback = true
-                }
-                
-                // Hide feedback after 2 seconds
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        showExerciseAddedFeedback = false
-                    }
-                }
-                
-                // Clear the selection
-                exerciseSelectionManager.clearSelection()
-            } else if exercise == nil {
-                print("🧹 CreateRoutineView: Selection cleared (nil value)")
-            } else {
-                print("⚠️ CreateRoutineView: Ignoring duplicate selection for: \(exercise?.name ?? "unknown")")
             }
         }
     }

@@ -14,8 +14,8 @@ class NavCoordinator: ObservableObject {
     // Navigation callbacks
     var navigateToWorkout: ((String?, String?) -> Void)?
     
-    // ViewModel reference for direct callback pattern
-    private weak var createRoutineViewModel: CreateRoutineViewModel?
+    // View reference for direct callback pattern (matching Android)
+    private var createRoutineView: CreateRoutineView?
     
     func navigate(to screen: Screen) {
         print("\(logger): Navigating to \(screen.route)")
@@ -119,16 +119,16 @@ class NavCoordinator: ObservableObject {
         return parameters
     }
     
-    // MARK: - ViewModel Management
-    func setCreateRoutineViewModel(_ viewModel: CreateRoutineViewModel) {
-        print("🏪 NavCoordinator: Setting CreateRoutineViewModel reference")
-        self.createRoutineViewModel = viewModel
+    // MARK: - View Management (matching Android pattern)
+    func setCreateRoutineView(_ view: CreateRoutineView) {
+        print("🏪 NavCoordinator: Setting CreateRoutineView reference")
+        self.createRoutineView = view
     }
     
-    func getCreateRoutineViewModel() -> CreateRoutineViewModel? {
-        let hasViewModel = createRoutineViewModel != nil
-        print("🔍 NavCoordinator: Getting CreateRoutineViewModel reference: \(hasViewModel ? "FOUND" : "NIL")")
-        return createRoutineViewModel
+    func getCreateRoutineView() -> CreateRoutineView? {
+        let hasView = createRoutineView != nil
+        print("🔍 NavCoordinator: Getting CreateRoutineView reference: \(hasView ? "FOUND" : "NIL")")
+        return createRoutineView
     }
     
     // MARK: - Utility
@@ -136,6 +136,6 @@ class NavCoordinator: ObservableObject {
         print("\(logger): Resetting navigation to auth")
         currentScreen = .auth
         navigationStack.removeAll()
-        createRoutineViewModel = nil
+        createRoutineView = nil
     }
 }
