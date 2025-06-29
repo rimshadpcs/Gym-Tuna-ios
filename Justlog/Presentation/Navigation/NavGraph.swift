@@ -10,6 +10,7 @@ struct NavGraph: View {
     let exerciseRepository: ExerciseRepository
     
     @State private var currentRoute: String = Screen.auth.route
+    @StateObject private var createRoutineManager = CreateRoutineManager()
     
     var body: some View {
         NavigationStack {
@@ -124,10 +125,11 @@ struct NavGraph: View {
         let routeParameters = coordinator.getRouteParameters(coordinator.currentRoute)
         let routineId = routeParameters["routineId"]
         
-        let createRoutineView = CreateRoutineView(
+        return CreateRoutineView(
             workoutRepository: workoutRepository,
             authRepository: authRepository,
             routineId: routineId,
+            createRoutineManager: createRoutineManager,
             onBack: {
                 coordinator.pop()
             },
@@ -141,11 +143,6 @@ struct NavGraph: View {
                 coordinator.navigate(to: .subscription)
             }
         )
-        
-        // Store reference for direct exercise addition (matching Android pattern)
-        coordinator.setCreateRoutineView(createRoutineView)
-        
-        return createRoutineView
     }
     
     private var exerciseSearchScreenView: some View {
@@ -156,14 +153,10 @@ struct NavGraph: View {
                 coordinator.pop()
             },
             onExerciseSelected: { exercise in
-                print("🚀 NavGraph: Exercise selected: \(exercise.name) → Calling CreateRoutineView.addExercise() directly")
-                if let createRoutineView = coordinator.getCreateRoutineView() {
-                    createRoutineView.addExercise(exercise)
-                    print("🔙 NavGraph: Navigating back to CreateRoutine")
-                    coordinator.pop()
-                } else {
-                    print("❌ NavGraph: No CreateRoutineView reference found!")
-                }
+                print("🚀 NavGraph: Exercise selected: \(exercise.name) → Calling CreateRoutineManager")
+                createRoutineManager.addExercise(exercise)
+                print("🔙 NavGraph: Navigating back to CreateRoutine")
+                coordinator.pop()
             },
             onCreateExercise: {
                 coordinator.navigate(to: .createExercise)

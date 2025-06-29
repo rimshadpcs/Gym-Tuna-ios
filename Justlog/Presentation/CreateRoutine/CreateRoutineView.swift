@@ -20,6 +20,7 @@ struct CreateRoutineView: View {
     let onRoutineCreated: () -> Void
     let onAddExercise: () -> Void
     let onNavigateToSubscription: () -> Void
+    @ObservedObject private var createRoutineManager: CreateRoutineManager
     
     private let routineId: String?
     
@@ -46,6 +47,7 @@ struct CreateRoutineView: View {
         workoutRepository: WorkoutRepository,
         authRepository: AuthRepository,
         routineId: String? = nil,
+        createRoutineManager: CreateRoutineManager,
         onBack: @escaping () -> Void,
         onRoutineCreated: @escaping () -> Void,
         onAddExercise: @escaping () -> Void,
@@ -59,10 +61,14 @@ struct CreateRoutineView: View {
         )
         self._viewModel = StateObject(wrappedValue: viewModel)
         
+        self.createRoutineManager = createRoutineManager
         self.onBack = onBack
         self.onRoutineCreated = onRoutineCreated
         self.onAddExercise = onAddExercise
         self.onNavigateToSubscription = onNavigateToSubscription
+        
+        // Set up the manager to call our addExercise function
+        createRoutineManager.setAddExerciseFunction(self.addExercise)
     }
     
     var body: some View {
