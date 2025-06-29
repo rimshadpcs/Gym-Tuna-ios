@@ -24,24 +24,6 @@ struct CreateRoutineView: View {
     
     private let routineId: String?
     
-    // Public function to add exercise (matching Android pattern)
-    func addExercise(_ exercise: Exercise) {
-        print("🎯 CreateRoutineView: Exercise selected via direct callback: \(exercise.name)")
-        viewModel.addExercise(exercise)
-        
-        // Show UI feedback
-        addedExerciseName = exercise.name
-        withAnimation(.easeInOut(duration: 0.3)) {
-            showExerciseAddedFeedback = true
-        }
-        
-        // Hide feedback after 2 seconds
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            withAnimation(.easeInOut(duration: 0.3)) {
-                showExerciseAddedFeedback = false
-            }
-        }
-    }
     
     init(
         workoutRepository: WorkoutRepository,
@@ -67,8 +49,6 @@ struct CreateRoutineView: View {
         self.onAddExercise = onAddExercise
         self.onNavigateToSubscription = onNavigateToSubscription
         
-        // Set up the manager to call our addExercise function
-        createRoutineManager.setAddExerciseFunction(self.addExercise)
     }
     
     var body: some View {
@@ -78,6 +58,15 @@ struct CreateRoutineView: View {
                 .onAppear {
                     print("🏗️ CreateRoutineView: View appeared. Current exercises: \(viewModel.selectedExercises.count)")
                     print("🏗️ CreateRoutineView: Exercise details: \(viewModel.selectedExercises.map { $0.name })")
+                    
+                    // Set up the manager to call our addExercise function
+                    print("🏗️ CreateRoutineView: Setting up addExercise function in manager")
+                    createRoutineManager.setAddExerciseFunction { exercise in
+                        print("🎯 CreateRoutineView: addExercise closure called for: \(exercise.name)")
+                        viewModel.addExercise(exercise)
+                        
+                        // Note: UI feedback will be handled separately since this is just for the data
+                    }
                 }
             
             VStack(spacing: 0) {
