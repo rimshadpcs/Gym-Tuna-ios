@@ -1,21 +1,37 @@
-//
-//  ContentView.swift
-//  Justlog
-//
-//  Created by Mohmed Rimshad on 27/06/2025.
-//
-
 import SwiftUI
+import FirebaseAuth
 
 struct ContentView: View {
+    @StateObject private var userPreferences = UserPreferences()
+    @StateObject private var googleSignInHelper = GoogleSignInHelper()
+    
+    private var authRepository: AuthRepository {
+        AuthRepositoryImpl(userPreferences: userPreferences, googleSignInHelper: googleSignInHelper)
+    }
+    
+    private var workoutRepository: WorkoutRepository {
+        WorkoutRepositoryImpl(authRepository: authRepository)
+    }
+    
+    private var exerciseRepository: ExerciseRepository {
+        ExerciseRepositoryImpl()
+    }
+    
+    private var authViewModel: AuthViewModel {
+        AuthViewModel(
+            authRepository: authRepository,
+            googleSignInHelper: googleSignInHelper,
+            userPreferences: userPreferences
+        )
+    }
+    
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
-        }
-        .padding()
+        NavGraph(
+            authViewModel: authViewModel,
+            authRepository: authRepository,
+            workoutRepository: workoutRepository,
+            exerciseRepository: exerciseRepository
+        )
     }
 }
 

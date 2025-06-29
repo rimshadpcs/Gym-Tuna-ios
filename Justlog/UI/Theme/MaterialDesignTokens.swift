@@ -1,0 +1,159 @@
+import SwiftUI
+
+// MARK: - Material Design Spacing System
+struct MaterialSpacing {
+    static let xs: CGFloat = 4
+    static let sm: CGFloat = 8
+    static let md: CGFloat = 12
+    static let lg: CGFloat = 16
+    static let xl: CGFloat = 20
+    static let xxl: CGFloat = 24
+    static let xxxl: CGFloat = 32
+    
+    // Screen margins (matching Android)
+    static let screenHorizontal: CGFloat = 16
+    static let screenVertical: CGFloat = 16
+    
+    // Component spacing
+    static let cardPadding: CGFloat = 16
+    static let listItemPadding: CGFloat = 16
+    static let sectionSpacing: CGFloat = 24
+}
+
+// MARK: - Material Design Typography
+struct MaterialTypography {
+    // Headlines
+    static let headline1 = Font.system(size: 96, weight: .light)
+    static let headline2 = Font.system(size: 60, weight: .light)
+    static let headline3 = Font.system(size: 48, weight: .regular)
+    static let headline4 = Font.system(size: 34, weight: .regular)
+    static let headline5 = Font.system(size: 24, weight: .regular)
+    static let headline6 = Font.system(size: 20, weight: .medium)
+    
+    // Body text
+    static let body1 = Font.system(size: 16, weight: .regular)
+    static let body2 = Font.system(size: 14, weight: .regular)
+    
+    // Buttons
+    static let button = Font.system(size: 14, weight: .medium)
+    
+    // Captions and overlines
+    static let caption = Font.system(size: 12, weight: .regular)
+    static let overline = Font.system(size: 10, weight: .regular)
+    
+    // Subtitles
+    static let subtitle1 = Font.system(size: 16, weight: .regular)
+    static let subtitle2 = Font.system(size: 14, weight: .medium)
+}
+
+// MARK: - Material Design Corner Radius
+struct MaterialCornerRadius {
+    static let small: CGFloat = 4
+    static let medium: CGFloat = 8
+    static let large: CGFloat = 12
+    static let extraLarge: CGFloat = 16
+    
+    // Component specific
+    static let button: CGFloat = 8
+    static let card: CGFloat = 12
+    static let dialog: CGFloat = 16
+    static let bottomSheet: CGFloat = 16
+}
+
+// MARK: - Material Design Elevation (Shadow) as ViewModifiers
+struct MaterialElevationModifier: ViewModifier {
+    let level: Int
+    
+    func body(content: Content) -> some View {
+        let shadows: [(opacity: Double, radius: CGFloat, y: CGFloat)] = [
+            (0.1, 1, 1),   // Level 1
+            (0.15, 2, 1),  // Level 2
+            (0.2, 4, 2),   // Level 3
+            (0.25, 6, 3),  // Level 4
+            (0.3, 8, 4)    // Level 5
+        ]
+        
+        let shadow = shadows[min(max(level - 1, 0), shadows.count - 1)]
+        
+        return content.shadow(
+            color: Color.black.opacity(shadow.opacity),
+            radius: shadow.radius,
+            x: 0,
+            y: shadow.y
+        )
+    }
+}
+
+// MARK: - Material Colors (you can customize these to match your brand)
+struct MaterialColors {
+    // Primary colors
+    static let primary = Color.blue
+    static let primaryVariant = Color.blue.opacity(0.8)
+    static let onPrimary = Color.white
+    
+    // Secondary colors
+    static let secondary = Color.green
+    static let secondaryVariant = Color.green.opacity(0.8)
+    static let onSecondary = Color.white
+    
+    // Background colors
+    static let background = Color(.systemBackground)
+    static let onBackground = Color(.label)
+    
+    // Surface colors
+    static let surface = Color(.systemBackground)
+    static let onSurface = Color(.label)
+    
+    // Error colors
+    static let error = Color.red
+    static let onError = Color.white
+    
+    // Outline colors
+    static let outline = Color(.systemGray4)
+    static let outlineVariant = Color(.systemGray5)
+}
+
+// MARK: - Material Design Component Tokens
+struct MaterialComponentTokens {
+    // Card
+    struct Card {
+        static let cornerRadius = MaterialCornerRadius.card
+        static let padding = MaterialSpacing.cardPadding
+    }
+    
+    // Button
+    struct Button {
+        static let cornerRadius = MaterialCornerRadius.button
+        static let height: CGFloat = 48
+        static let minWidth: CGFloat = 64
+        static let horizontalPadding = MaterialSpacing.lg
+    }
+    
+    // List Item
+    struct ListItem {
+        static let height: CGFloat = 72
+        static let padding = MaterialSpacing.listItemPadding
+        static let avatarSize: CGFloat = 40
+    }
+}
+
+// MARK: - View Extensions for Material Design
+extension View {
+    func materialCard() -> some View {
+        self
+            .background(
+                RoundedRectangle(cornerRadius: MaterialCornerRadius.card)
+                    .fill(MaterialColors.surface)
+                    .shadow(
+                        color: Color.black.opacity(0.1),
+                        radius: 4,
+                        x: 0,
+                        y: 2
+                    )
+            )
+    }
+    
+    func materialElevation(_ level: Int) -> some View {
+        self.modifier(MaterialElevationModifier(level: level))
+    }
+}
