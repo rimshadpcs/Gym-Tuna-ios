@@ -10,6 +10,7 @@ import SwiftUI
 struct CreateRoutineView: View {
     @StateObject private var viewModel: CreateRoutineViewModel
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var exerciseSelectionManager: ExerciseSelectionManager
     
     // UI feedback state
     @State private var showExerciseAddedFeedback = false
@@ -34,6 +35,7 @@ struct CreateRoutineView: View {
         onNavigateToSubscription: @escaping () -> Void
     ) {
         self.routineId = routineId
+        self.exerciseSelectionManager = exerciseSelectionManager
         let viewModel = CreateRoutineViewModel(
             workoutRepository: workoutRepository,
             authRepository: authRepository,

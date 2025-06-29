@@ -10,18 +10,20 @@ import SwiftUI
 struct ExerciseSearchView: View {
     @StateObject private var viewModel: ExerciseSearchViewModel
     @State private var searchText = ""
+    @ObservedObject private var exerciseSelectionManager: ExerciseSelectionManager
     let onBack: () -> Void
     let onExerciseSelected: (Exercise) -> Void
     let onCreateExercise: () -> Void
     
     init(
         exerciseRepository: ExerciseRepository,
-        exerciseSelectionManager: ExerciseSelectionManager? = nil,
+        exerciseSelectionManager: ExerciseSelectionManager,
         onBack: @escaping () -> Void,
         onExerciseSelected: @escaping (Exercise) -> Void,
         onCreateExercise: @escaping () -> Void
     ) {
         self._viewModel = StateObject(wrappedValue: ExerciseSearchViewModel(exerciseRepository: exerciseRepository))
+        self.exerciseSelectionManager = exerciseSelectionManager
         self.onBack = onBack
         self.onExerciseSelected = onExerciseSelected
         self.onCreateExercise = onCreateExercise
@@ -356,6 +358,7 @@ struct ExerciseItemView: View {
 #Preview {
     ExerciseSearchView(
         exerciseRepository: ExerciseRepositoryImpl(),
+        exerciseSelectionManager: ExerciseSelectionManager(),
         onBack: {},
         onExerciseSelected: { _ in },
         onCreateExercise: {}
