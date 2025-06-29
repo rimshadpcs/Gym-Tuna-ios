@@ -131,9 +131,11 @@ struct CreateRoutineView: View {
             }
         }
         .onReceive(exerciseSelectionManager.$selectedExercise) { exercise in
-            if let exercise = exercise {
-                print("🎯 CreateRoutineView: Exercise selected via ExerciseSelectionManager: \(exercise.name)")
+            if let exercise = exercise, exerciseSelectionManager.isNewSelection(exercise) {
+                print("🎯 CreateRoutineView: NEW exercise selected via ExerciseSelectionManager: \(exercise.name)")
+                print("📝 CreateRoutineView: Current exercises before add: \(viewModel.selectedExercises.count)")
                 viewModel.addExercise(exercise)
+                print("📝 CreateRoutineView: Current exercises after add: \(viewModel.selectedExercises.count)")
                 
                 // Show UI feedback
                 addedExerciseName = exercise.name
@@ -150,6 +152,10 @@ struct CreateRoutineView: View {
                 
                 // Clear the selection
                 exerciseSelectionManager.clearSelection()
+            } else if exercise == nil {
+                print("🧹 CreateRoutineView: Selection cleared (nil value)")
+            } else {
+                print("⚠️ CreateRoutineView: Ignoring duplicate selection for: \(exercise?.name ?? "unknown")")
             }
         }
     }
