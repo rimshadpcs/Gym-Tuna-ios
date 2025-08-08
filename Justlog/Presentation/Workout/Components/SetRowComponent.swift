@@ -88,32 +88,32 @@ struct SetRowComponent: View {
         HStack(spacing: 4) {
             // Set number or trophy
             setNumberView
-                .frame(width: 40, alignment: .center)
+                .frame(width: 32, alignment: .center) // Reduced by 20%: 40 -> 32
             
             // Previous performance
             previousPerformanceView
-                .frame(width: 50, alignment: .center)
+                .frame(width: 40, alignment: .center) // Reduced by 20%: 50 -> 40
             
             // Best performance
             bestPerformanceView
-                .frame(width: 50, alignment: .center)
+                .frame(width: 40, alignment: .center) // Reduced by 20%: 50 -> 40
             
             // Input fields - constrained width
             inputFieldsView
-                .frame(maxWidth: 160) // Limit input fields width
+                .frame(maxWidth: 128) // Reduced by 20%: 160 -> 128
             
             // Completion checkbox - fixed position
             completionCheckboxView
-                .frame(width: 28, height: 28)
+                .frame(width: 22, height: 22) // Reduced by 20%: 28 -> 22
                 .onAppear { print("🔲 Checkbox appeared for set \(setNumber), completed: \(set.isCompleted)") }
         }
-        .padding(.horizontal, 24)
-        .frame(height: 56)
+        .padding(.horizontal, 20) // Reduced by 20%: 24 -> 20
+        .frame(height: 45) // Reduced by 20%: 56 -> 45
         .background(backgroundColorForRow)
-        .cornerRadius(8)
+        .cornerRadius(6) // Reduced by 20%: 8 -> 6
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(rowBorderColor, lineWidth: isSessionBestPR ? 2 : 0)
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(rowBorderColor, lineWidth: isSessionBestPR ? 3 : 0) // Increased for visibility
         )
         .offset(x: dragOffset)
         .background(
@@ -181,12 +181,17 @@ struct SetRowComponent: View {
     private var setNumberView: some View {
         ZStack {
             if isSessionBestPR {
-                Text("🏆")
-                    .font(.system(size: 20))
+                VStack(spacing: 1) {
+                    Text("🏆")
+                        .font(.system(size: 14)) // Consistent size
+                    Text("\(setNumber)")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(Color(hex: "#FFD700") ?? .yellow)
+                }
             } else {
                 Text("\(setNumber)")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(isSessionBestPR ? Color(hex: "#FFD700") ?? .yellow : themeManager.colors.onSurface)
+                    .font(.system(size: 12, weight: .medium)) // Consistent with other text
+                    .foregroundColor(themeManager.colors.onSurface)
             }
         }
     }
@@ -226,12 +231,12 @@ struct SetRowComponent: View {
         if showTimeField { inputFieldCount += 1 }
         if showRepsField { inputFieldCount += 1 }
         
-        let availableWidth: CGFloat = 150 // Reduced from 200 to fit screen
-        let fieldSpacing: CGFloat = 2 // Reduced spacing
+        let availableWidth: CGFloat = 120 // Reduced by 20%: 150 -> 120
+        let fieldSpacing: CGFloat = 2 // Keep spacing same
         let totalSpacing = fieldSpacing * CGFloat(max(0, inputFieldCount - 1))
         let baseFieldWidth = (availableWidth - totalSpacing) / CGFloat(max(1, inputFieldCount))
         
-        let timeFieldWidth: CGFloat = inputFieldCount == 1 ? 80 : 60 // Reduced width
+        let timeFieldWidth: CGFloat = inputFieldCount == 1 ? 64 : 48 // Reduced by 20%: 80->64, 60->48
         let standardFieldWidth: CGFloat = (showTimeField && inputFieldCount > 1) ?
             (availableWidth - timeFieldWidth - totalSpacing) / CGFloat(max(1, inputFieldCount - 1)) :
             baseFieldWidth
@@ -260,7 +265,7 @@ struct SetRowComponent: View {
                     .onSubmit {
                         handleDonePressed()
                     }
-                    .frame(width: standardFieldWidth, height: 32)
+                    .frame(width: standardFieldWidth, height: 26) // Reduced by 20%: 32 -> 26
                     .background(
                         RoundedRectangle(cornerRadius: 4)
                             .fill(inputBackgroundColor)
@@ -294,7 +299,7 @@ struct SetRowComponent: View {
                     .onSubmit {
                         handleDonePressed()
                     }
-                    .frame(width: standardFieldWidth, height: 32)
+                    .frame(width: standardFieldWidth, height: 26) // Reduced by 20%: 32 -> 26
                     .background(
                         RoundedRectangle(cornerRadius: 4)
                             .fill(inputBackgroundColor)
@@ -354,7 +359,7 @@ struct SetRowComponent: View {
                     .onSubmit {
                         handleDonePressed()
                     }
-                    .frame(width: standardFieldWidth, height: 32)
+                    .frame(width: standardFieldWidth, height: 26) // Reduced by 20%: 32 -> 26
                     .background(
                         RoundedRectangle(cornerRadius: 4)
                             .fill(inputBackgroundColor)
@@ -381,7 +386,7 @@ struct SetRowComponent: View {
             checkmarkColor: .white,
             isDarkTheme: isDarkTheme
         )
-        .frame(width: 28, height: 28)
+        .frame(width: 22, height: 22)
     }
     
     // MARK: - Helper Methods
@@ -570,7 +575,7 @@ struct SetRowComponent: View {
         if set.isCompleted {
             return isDarkTheme ? Color(red: 46/255, green: 255/255, blue: 66/255, opacity: 1.0) : Color(red: 27/255, green: 225/255, blue: 45/255, opacity: 1.0)
         } else if isSessionBestPR {
-            return Color(hex: "FFD700")?.opacity(0.1) ?? Color.yellow.opacity(0.1)
+            return Color(hex: "FFD700")?.opacity(0.2) ?? Color.yellow.opacity(0.2) // Increased opacity for better visibility
         } else {
             return isDarkTheme ? Color(hex: "212121") ?? themeManager.colors.surface : themeManager.colors.surface
         }
