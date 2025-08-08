@@ -258,7 +258,7 @@ struct SetRowComponent: View {
                         }
                     }
                     .onSubmit {
-                        onFocusNext()
+                        handleDonePressed()
                     }
                     .frame(width: standardFieldWidth, height: 32)
                     .background(
@@ -292,7 +292,7 @@ struct SetRowComponent: View {
                         }
                     }
                     .onSubmit {
-                        onFocusNext()
+                        handleDonePressed()
                     }
                     .frame(width: standardFieldWidth, height: 32)
                     .background(
@@ -352,7 +352,7 @@ struct SetRowComponent: View {
                         }
                     }
                     .onSubmit {
-                        onFocusNext()
+                        handleDonePressed()
                     }
                     .frame(width: standardFieldWidth, height: 32)
                     .background(
@@ -385,6 +385,46 @@ struct SetRowComponent: View {
     }
     
     // MARK: - Helper Methods
+    
+    private func handleDonePressed() {
+        // Find current focused field and move to next field in same row
+        guard let currentField = focusedField.wrappedValue else { 
+            // No field focused, dismiss keyboard
+            focusedField.wrappedValue = nil
+            return 
+        }
+        
+        // Get all available fields for this set in order
+        let fieldsInOrder: [FocusableField] = [
+            usesWeight ? FocusableField.weight(set.setNumber) : nil,
+            tracksDistance ? FocusableField.distance(set.setNumber) : nil,
+            isTimeBased ? FocusableField.time(set.setNumber) : nil,
+            !isTimeBased ? FocusableField.reps(set.setNumber) : nil
+        ].compactMap { $0 }
+        
+        // Find current field index
+        guard let currentIndex = fieldsInOrder.firstIndex(of: currentField) else {
+            // Current field not found, dismiss keyboard
+            focusedField.wrappedValue = nil
+            return
+        }
+        
+        // Check if there's a next field in the same row
+        let nextIndex = currentIndex + 1
+        if nextIndex < fieldsInOrder.count {
+            // Move to next field in same row
+            focusedField.wrappedValue = fieldsInOrder[nextIndex]
+        } else {
+            // No more fields in this row - complete the set and dismiss keyboard
+            if !set.isCompleted {
+                onCompleted(true)
+                if isTimeBased && isTimerRunning {
+                    isTimerRunning = false
+                }
+            }
+            focusedField.wrappedValue = nil
+        }
+    }
     
     private func focusNext(currentIndex: Int) {
         // Determine the next focus state based on the current index and available fields
