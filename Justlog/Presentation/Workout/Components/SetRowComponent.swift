@@ -7,8 +7,16 @@
 
 import SwiftUI
 
+// Define FocusableField enum outside the struct
+enum FocusableField: Hashable {
+    case weight(Int)
+    case reps(Int)
+    case distance(Int)
+    case time(Int)
+}
+
 struct SetRowComponent: View {
-    @Environment(\.themeManager) private var themeManager
+    @Environment(\.themeManager) private var optionalThemeManager
     
     let setNumber: Int
     let weightUnit: WeightUnit
@@ -18,7 +26,7 @@ struct SetRowComponent: View {
     let tracksDistance: Bool
     let isTimeBased: Bool
     let isSessionBestPR: Bool
-    let firstInputFocusRequester: FocusRequester?
+    var focusedField: FocusState<FocusableField?>.Binding
     let onCompleted: (Bool) -> Void
     let onUpdateReps: (Int) -> Void
     let onUpdateWeight: (Double) -> Void
@@ -31,340 +39,736 @@ struct SetRowComponent: View {
     @State private var repsText: String = ""
     @State private var distanceText: String = ""
     @State private var timeText: String = ""
+    @State private var isTimerRunning: Bool = false
+    @State private var timerValue: Int = 0
     
-    @FocusState private var isWeightFocused: Bool
-    @FocusState private var isRepsFocused: Bool
-    @FocusState private var isDistanceFocused: Bool
-    @FocusState private var isTimeFocused: Bool
+    // Swipe-to-delete state
+    @State private var dragOffset: CGFloat = 0
+    @State private var isSwipeToDeleteActive: Bool = false
+    @State private var showingDeleteHint: Bool = false
     
-    // Field visibility (matching Android logic exactly)
-    private var showWeightField: Bool { usesWeight }
-    private var showDistanceField: Bool { tracksDistance }
-    private var showTimeField: Bool { isTimeBased }
-    private var showRepsField: Bool { !isTimeBased }
+    private var themeManager: ThemeManager {
+        optionalThemeManager ?? ThemeManager(userPreferences: UserPreferences.shared)
+    }
+    
+    private var isDarkTheme: Bool {
+        themeManager.currentTheme == .dark
+    }
+    
+    // Focus state computed properties
+    private var isWeightFocused: Bool {
+        if case .weight(let setNum) = focusedField.wrappedValue {
+            return setNum == setNumber
+        }
+        return false
+    }
+    
+    private var isDistanceFocused: Bool {
+        if case .distance(let setNum) = focusedField.wrappedValue {
+            return setNum == setNumber
+        }
+        return false
+    }
+    
+    private var isTimeFocused: Bool {
+        if case .time(let setNum) = focusedField.wrappedValue {
+            return setNum == setNumber
+        }
+        return false
+    }
+    
+    private var isRepsFocused: Bool {
+        if case .reps(let setNum) = focusedField.wrappedValue {
+            return setNum == setNumber
+        }
+        return false
+    }
     
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 4) {
+            // Set number or trophy
             setNumberView
+                .frame(width: 40, alignment: .center)
+            
+            // Previous performance
             previousPerformanceView
+                .frame(width: 50, alignment: .center)
+            
+            // Best performance
             bestPerformanceView
-            Spacer(minLength: 8)
+                .frame(width: 50, alignment: .center)
+            
+            // Input fields - constrained width
             inputFieldsView
-            Spacer(minLength: 8)
-            completeButtonView
+                .frame(maxWidth: 160) // Limit input fields width
+            
+            // Completion checkbox - fixed position
+            completionCheckboxView
+                .frame(width: 28, height: 28)
+                .onAppear { print("🔲 Checkbox appeared for set \(setNumber), completed: \(set.isCompleted)") }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 8)
-        .background(backgroundView)
-        .onAppear { updateTextFields() }
-        .onChange(of: set) { _ in updateTextFields() }
-        .onTapGesture { handleTapGesture() }
+        .padding(.horizontal, 24)
+        .frame(height: 56)
+        .background(backgroundColorForRow)
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(rowBorderColor, lineWidth: isSessionBestPR ? 2 : 0)
+        )
+        .offset(x: dragOffset)
+        .background(
+            // Delete background that shows when swiping
+            HStack {
+                Spacer()
+                if showingDeleteHint {
+                    VStack {
+                        Image(systemName: "trash")
+                            .foregroundColor(.white)
+                            .font(.system(size: 20, weight: .medium))
+                        Text(dragOffset < -120 ? "Release to Delete" : "Swipe to Delete")
+                            .foregroundColor(.white)
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .padding(.trailing, 20)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.red)
+            .cornerRadius(8)
+        )
+        .gesture(
+            DragGesture()
+                .onChanged { value in
+                    let translation = value.translation.width
+                    if translation < 0 {
+                        dragOffset = max(translation, -200)
+                        showingDeleteHint = dragOffset < -40
+                    }
+                }
+                .onEnded { value in
+                    let translation = value.translation.width
+                    if translation < -120 {
+                        // Delete threshold reached (70% of 200)
+                        withAnimation(.easeOut(duration: 0.3)) {
+                            dragOffset = -300
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            onDelete()
+                        }
+                    } else {
+                        // Snap back
+                        withAnimation(.easeOut(duration: 0.3)) {
+                            dragOffset = 0
+                            showingDeleteHint = false
+                        }
+                    }
+                }
+        )
+        .clipped()
+        .onAppear {
+            updateTextFields()
+        }
+        .onChange(of: set) { _ in
+            // Only update if no field is focused to prevent value disappearance
+            if !isWeightFocused && !isDistanceFocused && !isTimeFocused && !isRepsFocused {
+                updateTextFields()
+            }
+        }
     }
     
     // MARK: - Sub Views
     
     private var setNumberView: some View {
-        Text("\(setNumber)")
-            .vagFont(size: 14, weight: .medium)
-            .foregroundColor(themeManager?.colors.onSurface ?? LightThemeColors.onSurface)
-            .frame(width: 32)
+        ZStack {
+            if isSessionBestPR {
+                Text("🏆")
+                    .font(.system(size: 20))
+            } else {
+                Text("\(setNumber)")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(isSessionBestPR ? Color(hex: "#FFD700") ?? .yellow : themeManager.colors.onSurface)
+            }
+        }
     }
     
     private var previousPerformanceView: some View {
-        VStack(spacing: 2) {
-            if let prevWeight = set.previousWeight, let prevReps = set.previousReps, prevWeight > 0 || prevReps > 0 {
-                let displayString = buildDisplayString(
-                    weight: prevWeight > 0 ? prevWeight : nil,
-                    reps: prevReps > 0 ? prevReps : nil,
-                    distance: set.previousDistance,
-                    time: set.previousTime,
-                    weightUnit: weightUnit,
-                    distanceUnit: distanceUnit,
-                    showUnits: false
-                )
-                Text(displayString)
-                    .vagFont(size: 10, weight: .regular)
-                    .foregroundColor(themeManager?.colors.onSurface.opacity(0.6) ?? LightThemeColors.onSurface.opacity(0.6))
-                    .lineLimit(1)
-            } else {
-                Text("-")
-                    .vagFont(size: 10, weight: .regular)
-                    .foregroundColor(themeManager?.colors.onSurface.opacity(0.6) ?? LightThemeColors.onSurface.opacity(0.6))
-            }
+        VStack(spacing: 1) {
+            let prevText = buildPreviousDisplayString()
+            Text(prevText)
+                .font(.system(size: 10, weight: .regular))
+                .foregroundColor(themeManager.colors.onSurface.opacity(0.6))
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
         }
-        .frame(width: 40)
     }
     
     private var bestPerformanceView: some View {
-        VStack(spacing: 2) {
-            if let bestWeight = set.bestWeight, let bestReps = set.bestReps, bestWeight > 0 || bestReps > 0 {
-                let displayString = buildDisplayString(
-                    weight: bestWeight > 0 ? bestWeight : nil,
-                    reps: bestReps > 0 ? bestReps : nil,
-                    distance: set.bestDistance,
-                    time: set.bestTime,
-                    weightUnit: weightUnit,
-                    distanceUnit: distanceUnit,
-                    showUnits: false
-                )
-                Text(displayString)
-                    .vagFont(size: 10, weight: .regular)
-                    .foregroundColor(themeManager?.colors.onSurface.opacity(0.6) ?? LightThemeColors.onSurface.opacity(0.6))
-                    .lineLimit(1)
-            } else {
-                Text("-")
-                    .vagFont(size: 10, weight: .regular)
-                    .foregroundColor(themeManager?.colors.onSurface.opacity(0.6) ?? LightThemeColors.onSurface.opacity(0.6))
-            }
+        VStack(spacing: 1) {
+            let bestText = buildBestDisplayString()
+            Text(bestText)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(themeManager.colors.onSurface)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
         }
-        .frame(width: 40)
     }
     
     private var inputFieldsView: some View {
-        HStack(spacing: 4) {
-            // Calculate field widths
-            let inputFields = calculateInputFields()
-            let widths = calculateFieldWidths(inputFieldCount: inputFields.count)
+        let showWeightField = usesWeight
+        let showDistanceField = tracksDistance
+        let showTimeField = isTimeBased
+        let showRepsField = !isTimeBased
+        
+        // Calculate dynamic widths
+        var inputFieldCount = 0
+        if showWeightField { inputFieldCount += 1 }
+        if showDistanceField { inputFieldCount += 1 }
+        if showTimeField { inputFieldCount += 1 }
+        if showRepsField { inputFieldCount += 1 }
+        
+        let availableWidth: CGFloat = 150 // Reduced from 200 to fit screen
+        let fieldSpacing: CGFloat = 2 // Reduced spacing
+        let totalSpacing = fieldSpacing * CGFloat(max(0, inputFieldCount - 1))
+        let baseFieldWidth = (availableWidth - totalSpacing) / CGFloat(max(1, inputFieldCount))
+        
+        let timeFieldWidth: CGFloat = inputFieldCount == 1 ? 80 : 60 // Reduced width
+        let standardFieldWidth: CGFloat = (showTimeField && inputFieldCount > 1) ?
+            (availableWidth - timeFieldWidth - totalSpacing) / CGFloat(max(1, inputFieldCount - 1)) :
+            baseFieldWidth
             
+        return HStack(spacing: 2) { // Reduced spacing between input fields
             if showWeightField {
-                weightFieldView(width: widths.standard)
+                TextField((weightUnit == .kg) ? "kg" : "lb", text: $weightText)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.center)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(themeManager.colors.onSurface)
+                    .focused(focusedField, equals: FocusableField.weight(set.setNumber))
+                    .submitLabel(.done)
+                    .onChange(of: weightText) { newValue in
+                        if newValue.isEmpty || isValidDecimalInput(newValue) {
+                            if let value = Double(newValue) {
+                                let kgValue = (weightUnit == .kg) ? value : WeightConverter.lbsToKg(value)
+                                onUpdateWeight(kgValue)
+                            } else {
+                                onUpdateWeight(0.0)
+                            }
+                        } else {
+                            weightText = String(newValue.dropLast())
+                        }
+                    }
+                    .onSubmit {
+                        onFocusNext()
+                    }
+                    .frame(width: standardFieldWidth, height: 32)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(inputBackgroundColor)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .stroke(inputBorderColor, lineWidth: 1)
+                            )
+                    )
             }
             
             if showDistanceField {
-                distanceFieldView(width: widths.standard)
+                TextField((distanceUnit == .km) ? "km" : "mi", text: $distanceText)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.center)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(themeManager.colors.onSurface)
+                    .focused(focusedField, equals: FocusableField.distance(set.setNumber))
+                    .submitLabel(.done)
+                    .onChange(of: distanceText) { newValue in
+                        if newValue.isEmpty || isValidDecimalInput(newValue) {
+                            if let value = Double(newValue) {
+                                let kmValue = (distanceUnit == .km) ? value : DistanceConverter.milesToKm(value)
+                                onUpdateDistance(kmValue)
+                            } else {
+                                onUpdateDistance(0.0)
+                            }
+                        } else {
+                            distanceText = String(newValue.dropLast())
+                        }
+                    }
+                    .onSubmit {
+                        onFocusNext()
+                    }
+                    .frame(width: standardFieldWidth, height: 32)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(inputBackgroundColor)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .stroke(inputBorderColor, lineWidth: 1)
+                            )
+                    )
             }
             
             if showTimeField {
-                timeFieldView(width: widths.time)
+                TimeInputField(
+                    time: $timeText,
+                    isTimerRunning: $isTimerRunning,
+                    onStartStopTimer: {
+                        if isTimerRunning {
+                            isTimerRunning = false
+                        } else {
+                            timerValue = Int(timeText) ?? 0
+                            isTimerRunning = true
+                        }
+                    },
+                    onResetTimer: {
+                        timerValue = 0
+                        timeText = "0"
+                        onUpdateTime(0)
+                    },
+                    previousTime: set.previousTime.map { Double($0) },
+                    width: timeFieldWidth,
+                    bgColor: inputBackgroundColor,
+                    borderColor: inputBorderColor,
+                    contentColor: actualContentColor,
+                    placeholderColor: actualPlaceholderColor,
+                    isDarkTheme: isDarkTheme
+                )
             }
             
             if showRepsField {
-                repsFieldView(width: widths.standard)
+                TextField("reps", text: $repsText)
+                    .keyboardType(.numberPad)
+                    .multilineTextAlignment(.center)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(themeManager.colors.onSurface)
+                    .focused(focusedField, equals: FocusableField.reps(set.setNumber))
+                    .submitLabel(.done)
+                    .onChange(of: repsText) { newValue in
+                        if newValue.isEmpty || newValue.allSatisfy({ $0.isWholeNumber }) {
+                            if let value = Int(newValue) {
+                                onUpdateReps(value)
+                            } else {
+                                onUpdateReps(0)
+                            }
+                        } else {
+                            repsText = String(newValue.dropLast())
+                        }
+                    }
+                    .onSubmit {
+                        onFocusNext()
+                    }
+                    .frame(width: standardFieldWidth, height: 32)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(inputBackgroundColor)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .stroke(inputBorderColor, lineWidth: 1)
+                            )
+                    )
             }
         }
     }
     
-    private var completeButtonView: some View {
-        Button(action: {
-            onCompleted(!set.isCompleted)
-        }) {
-            Image(systemName: set.isCompleted ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 20))
-                .foregroundColor(
-                    set.isCompleted ?
-                    (themeManager?.colors.primary ?? LightThemeColors.primary) :
-                    (themeManager?.colors.onSurface.opacity(0.3) ?? LightThemeColors.onSurface.opacity(0.3))
-                )
-        }
+    private var completionCheckboxView: some View {
+        Checkbox(
+            checked: set.isCompleted,
+            onCheckedChange: { isChecked in
+                onCompleted(isChecked)
+                if isChecked {
+                    // Auto-focus next set's first input field
+                    onFocusNext()
+                }
+            },
+            uncheckedColor: themeManager.colors.outline,
+            checkmarkColor: .white,
+            isDarkTheme: isDarkTheme
+        )
         .frame(width: 28, height: 28)
-    }
-    
-    private var backgroundView: some View {
-        RoundedRectangle(cornerRadius: 8)
-            .fill(backgroundColorForSet)
-            .overlay(
-                // PR indicator border
-                isSessionBestPR ? 
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(themeManager?.colors.primary ?? LightThemeColors.primary, lineWidth: 2) :
-                nil
-            )
-    }
-    
-    // MARK: - Individual Field Views
-    
-    private func weightFieldView(width: CGFloat) -> some View {
-        FocusableNumericTextField(
-            value: $weightText,
-            placeholder: "0",
-            keyboardType: .decimalPad,
-            isFocused: $isWeightFocused
-        )
-        .frame(width: width)
-        .onSubmit {
-            if let weight = Double(weightText) {
-                onUpdateWeight(weight)
-            }
-            moveToNextField(from: "weight")
-        }
-        .focused($isWeightFocused)
-    }
-    
-    private func distanceFieldView(width: CGFloat) -> some View {
-        FocusableNumericTextField(
-            value: $distanceText,
-            placeholder: "0",
-            keyboardType: .decimalPad,
-            isFocused: $isDistanceFocused
-        )
-        .frame(width: width)
-        .onSubmit {
-            if let distance = Double(distanceText) {
-                onUpdateDistance(distance)
-            }
-            moveToNextField(from: "distance")
-        }
-        .focused($isDistanceFocused)
-    }
-    
-    private func timeFieldView(width: CGFloat) -> some View {
-        FocusableNumericTextField(
-            value: $timeText,
-            placeholder: "0",
-            keyboardType: .numberPad,
-            isFocused: $isTimeFocused
-        )
-        .frame(width: width)
-        .onSubmit {
-            if let time = Int(timeText) {
-                onUpdateTime(time)
-            }
-            moveToNextField(from: "time")
-        }
-        .focused($isTimeFocused)
-    }
-    
-    private func repsFieldView(width: CGFloat) -> some View {
-        FocusableNumericTextField(
-            value: $repsText,
-            placeholder: "0",
-            keyboardType: .numberPad,
-            isFocused: $isRepsFocused
-        )
-        .frame(width: width)
-        .onSubmit {
-            if let reps = Int(repsText) {
-                onUpdateReps(reps)
-            }
-            onFocusNext()
-        }
-        .focused($isRepsFocused)
     }
     
     // MARK: - Helper Methods
     
-    private func calculateInputFields() -> [String] {
-        var fields: [String] = []
-        if showWeightField { fields.append("weight") }
-        if showDistanceField { fields.append("distance") }
-        if showTimeField { fields.append("time") }
-        if showRepsField { fields.append("reps") }
-        return fields
-    }
-    
-    private func calculateFieldWidths(inputFieldCount: Int) -> (standard: CGFloat, time: CGFloat) {
-        let timeFieldWidth: CGFloat = inputFieldCount == 1 ? 120 : 80
-        let standardFieldWidth: CGFloat = showTimeField && inputFieldCount > 1 ? 
-            (200 - timeFieldWidth - CGFloat(inputFieldCount - 1) * 4) / CGFloat(inputFieldCount - 1) :
-            200 / CGFloat(inputFieldCount)
+    private func focusNext(currentIndex: Int) {
+        // Determine the next focus state based on the current index and available fields
+        var nextIndexInRow = currentIndex + 1
         
-        return (standard: standardFieldWidth, time: timeFieldWidth)
+        // Helper to get the next FocusableField case
+        func getNextFocusableField(for index: Int) -> FocusableField? {
+            let fields: [(Bool, (Int) -> FocusableField)] = [
+                (usesWeight, FocusableField.weight),
+                (tracksDistance, FocusableField.distance),
+                (isTimeBased, FocusableField.time),
+                (!isTimeBased, FocusableField.reps)
+            ]
+            
+            var currentField = 0
+            for (shouldShow, fieldConstructor) in fields {
+                if shouldShow {
+                    if currentField == index {
+                        return fieldConstructor(set.setNumber)
+                    }
+                    currentField += 1
+                }
+            }
+            return nil
+        }
+        
+        // Try to focus the next field in the current row
+        if let nextField = getNextFocusableField(for: nextIndexInRow) {
+            focusedField.wrappedValue = nextField
+            return // Successfully moved focus to next field in current row
+        }
+        
+        // If no more fields in this row, auto-complete and move to next set
+        if !set.isCompleted {
+            onCompleted(true)
+            if isTimeBased && isTimerRunning {
+                isTimerRunning = false
+            }
+        }
+        onFocusNext() // Move to next set's first input field
     }
     
-    private func moveToNextField(from currentField: String) {
-        switch currentField {
-        case "weight":
-            if showDistanceField {
-                isDistanceFocused = true
-            } else if showTimeField {
-                isTimeFocused = true
-            } else if showRepsField {
-                isRepsFocused = true
-            } else {
-                onFocusNext()
-            }
-        case "distance":
-            if showTimeField {
-                isTimeFocused = true
-            } else if showRepsField {
-                isRepsFocused = true
-            } else {
-                onFocusNext()
-            }
-        case "time":
-            if showRepsField {
-                isRepsFocused = true
-            } else {
-                onFocusNext()
-            }
-        default:
-            onFocusNext()
+    private func formatNumber(_ number: Double) -> String {
+        if number == number.rounded() {
+            return String(format: "%.0f", number)
+        } else {
+            return String(format: "%.2f", number)
         }
     }
     
-    private func handleTapGesture() {
-        if showWeightField {
-            isWeightFocused = true
-        } else if showDistanceField {
-            isDistanceFocused = true
-        } else if showTimeField {
-            isTimeFocused = true
-        } else if showRepsField {
-            isRepsFocused = true
+    private func updateTextFields() {
+        weightText = {
+            if set.weight > 0 {
+                let displayWeight = (weightUnit == .kg) ? set.weight : WeightConverter.kgToLbs(set.weight)
+                return formatNumber(displayWeight)
+            } else if let prevWeight = set.previousWeight, prevWeight > 0 {
+                let displayWeight = (weightUnit == .kg) ? prevWeight : WeightConverter.kgToLbs(prevWeight)
+                return formatNumber(displayWeight)
+            }
+            else {
+                return ""
+            }
+        }()
+        
+        repsText = {
+            if set.reps > 0 {
+                return String(set.reps)
+            } else if let prevReps = set.previousReps, prevReps > 0 {
+                return String(prevReps)
+            }
+            else {
+                return ""
+            }
+        }()
+        
+        distanceText = {
+            if set.distance > 0 {
+                let displayDistance = (distanceUnit == .km) ? set.distance : DistanceConverter.kmToMiles(set.distance)
+                return String(format: "%.1f", displayDistance)
+            } else if let prevDistance = set.previousDistance, prevDistance > 0 {
+                let displayDistance = (distanceUnit == .km) ? prevDistance : DistanceConverter.kmToMiles(prevDistance)
+                return String(format: "%.1f", displayDistance)
+            }
+            else {
+                return ""
+            }
+        }()
+        
+        timeText = {
+            if set.time > 0 {
+                return String(set.time)
+            } else if let prevTime = set.previousTime, prevTime > 0 {
+                return String(prevTime)
+            }
+            else {
+                return ""
+            }
+        }()
+        
+        timerValue = set.time
+    }
+    
+    private func buildPreviousDisplayString() -> String {
+        return buildDisplayString(
+            weight: set.previousWeight,
+            reps: set.previousReps,
+            distance: set.previousDistance,
+            time: set.previousTime.map { Double($0) }, // Cast Int? to Double?
+            weightUnit: weightUnit,
+            distanceUnit: distanceUnit
+        )
+    }
+    
+    private func buildBestDisplayString() -> String {
+        return buildDisplayString(
+            weight: set.bestWeight,
+            reps: set.bestReps,
+            distance: set.bestDistance,
+            time: set.bestTime.map { Double($0) }, // Cast Int? to Double?
+            weightUnit: weightUnit,
+            distanceUnit: distanceUnit
+        )
+    }
+    
+    private var isValidDecimalInput: (String) -> Bool {
+        return { input in
+            return input.isEmpty ||
+                   (input.allSatisfy { $0.isNumber || $0 == "." } && input.filter { $0 == "." }.count <= 1)
         }
     }
     
-    private var backgroundColorForSet: Color {
+    // MARK: - Computed Properties for Colors and Styling
+    
+    private var actualContentColor: Color {
+        themeManager.colors.onSurface
+    }
+    
+    private var actualPlaceholderColor: Color {
+        actualContentColor.opacity(0.6)
+    }
+    
+    private var backgroundColorForRow: Color {
+        if set.isCompleted {
+            return isDarkTheme ? Color(red: 46/255, green: 255/255, blue: 66/255, opacity: 1.0) : Color(red: 27/255, green: 225/255, blue: 45/255, opacity: 1.0)
+        } else if isSessionBestPR {
+            return Color(hex: "FFD700")?.opacity(0.1) ?? Color.yellow.opacity(0.1)
+        } else {
+            return isDarkTheme ? Color(hex: "212121") ?? themeManager.colors.surface : themeManager.colors.surface
+        }
+    }
+    
+    private var rowBorderColor: Color {
         if isSessionBestPR {
-            return (themeManager?.colors.primary.opacity(0.1) ?? LightThemeColors.primary.opacity(0.1))
-        } else if set.isCompleted {
-            return (themeManager?.colors.primary.opacity(0.05) ?? LightThemeColors.primary.opacity(0.05))
+            return Color(hex: "#FFD700") ?? .yellow
         } else {
             return Color.clear
         }
     }
     
-    private func updateTextFields() {
-        weightText = set.weight > 0 ? String(set.weight.formatWeight()) : ""
-        repsText = set.reps > 0 ? String(set.reps) : ""
-        distanceText = set.distance > 0 ? String(set.distance.removeTrailingZeros()) : ""
-        timeText = set.time > 0 ? String(set.time) : ""
-    }
-    
-    // MARK: - Display String Builder
-    
-    private func buildDisplayString(
-        weight: Double?,
-        reps: Int?,
-        distance: Double?,
-        time: Int?,
-        weightUnit: WeightUnit,
-        distanceUnit: DistanceUnit,
-        showUnits: Bool
-    ) -> String {
-        if let weight = weight, let reps = reps, weight > 0, reps > 0 {
-            let weightStr = String(weight.formatWeight())
-            let unitStr = showUnits ? " \(weightUnit.rawValue)" : ""
-            return "\(weightStr)\(unitStr) x \(reps)"
-        } else if let distance = distance, distance > 0 {
-            let distanceStr = String(distance.removeTrailingZeros())
-            let unitStr = showUnits ? " \(distanceUnit.rawValue)" : ""
-            return "\(distanceStr)\(unitStr)"
-        } else if let time = time, time > 0 {
-            return formatTimeDisplay(seconds: time)
+    private var inputBackgroundColor: Color {
+        if set.isCompleted {
+            return Color.clear
+        } else if isDarkTheme {
+            return Color(hex: "2C2C2C") ?? themeManager.colors.surface
         } else {
-            return "-"
+            return themeManager.colors.surface
         }
     }
     
-    private func formatTimeDisplay(seconds: Int) -> String {
-        let minutes = seconds / 60
-        let remainingSeconds = seconds % 60
-        
-        if minutes > 0 {
-            return "\(minutes):\(String(format: "%02d", remainingSeconds))"
+    private var inputBorderColor: Color {
+        if set.isCompleted {
+            return Color.clear
+        } else if isDarkTheme {
+            return Color.white.opacity(0.3)
         } else {
-            return "\(remainingSeconds)s"
+            return themeManager.colors.outline.opacity(0.3)
         }
     }
 }
 
-// Define FocusRequester for SwiftUI
-struct FocusRequester {
-    private let uuid = UUID()
+// MARK: - Helper function to build display strings
+func buildDisplayString(
+    weight: Double?,
+    reps: Int?,
+    distance: Double?,
+    time: Double?,
+    weightUnit: WeightUnit,
+    distanceUnit: DistanceUnit
+) -> String {
+    var components: [String] = []
     
-    func requestFocus() {
-        // Implementation for focus request
-        // In SwiftUI, this would be handled by @FocusState
+    if let weight = weight, weight > 0 {
+        let displayWeight = (weightUnit == .kg) ? weight : WeightConverter.kgToLbs(weight)
+        let weightStr = String(format: displayWeight == displayWeight.rounded() ? "%.0f" : "%.1f", displayWeight)
+        components.append("\(weightStr)\(weightUnit == .kg ? "kg" : "lb")")
+    }
+    
+    if let distance = distance, distance > 0 {
+        let displayDistance = (distanceUnit == .km) ? distance : DistanceConverter.kmToMiles(distance)
+        let distanceStr = String(format: "%.1f", displayDistance)
+        components.append("\(distanceStr)\(distanceUnit == .km ? "km" : "mi")")
+    }
+    
+    if let time = time, time > 0 {
+        components.append(DistanceConverter.formatTime(Int(time)))
+    }
+    
+    if let reps = reps, reps > 0 {
+        components.append("\(reps)")
+    }
+    
+    return components.isEmpty ? "--" : components.joined(separator: "\n")
+}
+
+// MARK: - Helper Structs
+
+struct InputField: View {
+    @Binding var value: String
+    let onValueChange: (String) -> Void
+    let placeholder: String
+    let keyboardType: UIKeyboardType
+    let width: CGFloat
+    let bgColor: Color
+    let borderColor: Color
+    let contentColor: Color
+    let placeholderColor: Color
+    @FocusState var focusState: Bool
+    let onDone: () -> Void
+    
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(bgColor)
+                .frame(width: width, height: 32)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4)
+                        .stroke(borderColor, lineWidth: 1)
+                )
+            
+            TextField("", text: $value)
+                .placeholder(when: value.isEmpty) {
+                    Text(placeholder)
+                        .font(.system(size: 12))
+                        .foregroundColor(placeholderColor)
+                }
+                .keyboardType(keyboardType)
+                .multilineTextAlignment(.center)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(contentColor)
+                .frame(width: width - 8, height: 32) // Inner padding
+                .focused($focusState)
+                .submitLabel(.done)
+                .onSubmit {
+                    onDone()
+                }
+        }
+    }
+}
+
+struct TimeInputField: View {
+    @Binding var time: String
+    @Binding var isTimerRunning: Bool
+    let onStartStopTimer: () -> Void
+    let onResetTimer: () -> Void
+    let previousTime: Double?
+    let width: CGFloat
+    let bgColor: Color
+    let borderColor: Color
+    let contentColor: Color
+    let placeholderColor: Color
+    let isDarkTheme: Bool
+    
+    @Environment(\.themeManager) private var optionalThemeManager
+    
+    private var themeManager: ThemeManager {
+        optionalThemeManager ?? ThemeManager(userPreferences: UserPreferences.shared)
+    }
+    
+    var body: some View {
+        HStack(spacing: 2) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(bgColor)
+                    .frame(width: width * 0.65, height: 32) // Adjust width for timer display
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4)
+                            .stroke(isTimerRunning ? themeManager.colors.primary : borderColor, lineWidth: 1)
+                    )
+                
+                Text(formattedTime)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(isTimerRunning ? themeManager.colors.primary : contentColor)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(width: width * 0.65, height: 32)
+            
+            // Timer controls
+            HStack(spacing: 0) {
+                Button(action: onStartStopTimer) {
+                    Image(isTimerRunning ? (isDarkTheme ? "stop_dark" : "stop") : (isDarkTheme ? "play_dark" : "play"))
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 16, height: 16)
+                }
+                .frame(width: 24, height: 24)
+                
+                if !isTimerRunning && (Int(time) ?? 0) > 0 {
+                    Button(action: onResetTimer) {
+                        Image(isDarkTheme ? "reset_dark" : "reset")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 14, height: 14)
+                    }
+                    .frame(width: 24, height: 24)
+                }
+            }
+        }
+        .frame(width: width, height: 32)
+    }
+    
+    private var formattedTime: String {
+        let seconds = Int(time) ?? 0
+        if seconds == 0 && previousTime != nil {
+            return DistanceConverter.formatTime(Int(previousTime!))
+        } else if seconds == 0 {
+            return "--:--"
+        }
+        return DistanceConverter.formatTime(seconds)
+    }
+}
+
+struct Checkbox: View {
+    let checked: Bool
+    let onCheckedChange: (Bool) -> Void
+    let uncheckedColor: Color
+    let checkmarkColor: Color
+    let isDarkTheme: Bool
+    
+    var body: some View {
+        Button(action: {
+            print("🔲 Checkbox tapped! Current state: \(checked), will change to: \(!checked)")
+            onCheckedChange(!checked)
+        }) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(checked ? Color.black : uncheckedColor, lineWidth: 2)
+                    .background(checked ? Color.black : Color.clear)
+                    .cornerRadius(4)
+                
+                if checked {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.white)
+                }
+            }
+        }
+        .onAppear { print("🔲 Checkbox component rendered - checked: \(checked)") }
+    }
+}
+
+// Helper for TextField placeholder
+extension View {
+    func placeholder<Content: View>(
+        when shouldShow: Bool,
+        alignment: Alignment = .center,
+        @ViewBuilder placeholder: () -> Content) -> some View {
+            
+            ZStack(alignment: alignment) {
+                placeholder().opacity(shouldShow ? 1 : 0)
+                self
+            }
+        }
+}
+
+// MARK: - Extensions (for compilation)
+extension String {
+    func cleanDecimalString() -> String {
+        if let number = Double(self) {
+            let formatter = NumberFormatter()
+            formatter.minimumFractionDigits = 0
+            formatter.maximumFractionDigits = 2
+            formatter.numberStyle = .decimal
+            return formatter.string(from: NSNumber(value: number)) ?? self
+        }
+        return self
     }
 }

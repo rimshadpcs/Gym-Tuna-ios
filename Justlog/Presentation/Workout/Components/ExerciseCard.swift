@@ -432,8 +432,10 @@ struct ExerciseCard: View {
         
         var nextFieldToFocus: FocusableField? = nil
         var foundCurrent = false
+        var currentSetIndex: Int? = nil
+        var currentSet: ExerciseSet? = nil
         
-        // Iterate through all possible fields to find the next one
+        // Find which set the current field belongs to and the next field
         for setIndex in workoutExercise.sets.indices {
             let set = workoutExercise.sets[setIndex]
             
@@ -445,22 +447,47 @@ struct ExerciseCard: View {
             ].compactMap { $0 }
             
             for field in fieldsInOrder {
-                if foundCurrent {
-                    nextFieldToFocus = field
-                    break
-                }
                 if field == currentFocusedField {
                     foundCurrent = true
+                    currentSetIndex = setIndex
+                    currentSet = set
+                } else if foundCurrent {
+                    nextFieldToFocus = field
+                    break
                 }
             }
             if nextFieldToFocus != nil { break }
         }
         
         if let nextField = nextFieldToFocus {
+            // Move to next field in the same set or next set
             focusedField = nextField
+        } else if let setIndex = currentSetIndex, let set = currentSet {
+            // No more fields - auto-complete the current set and move to next set
+            if !set.isCompleted {
+                onSetCompleted(set, true)
+            }
+            
+            // Try to focus the first field of the next set
+            if setIndex + 1 < workoutExercise.sets.count {
+                let nextSet = workoutExercise.sets[setIndex + 1]
+                
+                // Focus first available field of next set
+                if workoutExercise.exercise.usesWeight {
+                    focusedField = .weight(nextSet.setNumber)
+                } else if workoutExercise.exercise.tracksDistance {
+                    focusedField = .distance(nextSet.setNumber)
+                } else if workoutExercise.exercise.isTimeBased {
+                    focusedField = .time(nextSet.setNumber)
+                } else {
+                    focusedField = .reps(nextSet.setNumber)
+                }
+            } else {
+                // No more sets - dismiss keyboard
+                focusedField = nil
+            }
         } else {
-            // If no next field in current exercise, try to move to next exercise or dismiss keyboard
-            // For now, just dismiss keyboard if no next field is found
+            // Fallback - just dismiss keyboard
             focusedField = nil
         }
     }
