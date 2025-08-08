@@ -9,77 +9,125 @@ import SwiftUI
 import Foundation
 
 struct QuickActionsSection: View {
+    @Environment(\.themeManager) private var themeManager
     let onStartEmptyWorkout: () -> Void
     let onNewRoutine: () -> Void
     let onNavigateToCounter: () -> Void
     
-    @Environment(\.colorScheme) private var colorScheme
-    
     private var isDarkTheme: Bool {
-        colorScheme == .dark
+        switch themeManager?.currentTheme {
+        case .dark:
+            return true
+        case .neutral, .light, .none:
+            return false
+        }
     }
     
     var body: some View {
-        VStack(spacing: MaterialSpacing.lg) {
-            // Title and Counter button
+        VStack(spacing: 8) {
+            // Section header with counter button on the right
             HStack {
                 Text("Quick Actions")
-                    .font(MaterialTypography.headline6)
-                    .foregroundColor(MaterialColors.onBackground)
+                    .vagFont(size: 18, weight: .semibold)
+                    .foregroundColor(themeManager?.colors.onBackground ?? LightThemeColors.onBackground)
                 
                 Spacer()
                 
-                // Counter Button (Material Chip Style)
+                // Counter Button - match Android exactly
                 Button(action: onNavigateToCounter) {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 4) {
                         Text("Custom counter")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(MaterialColors.onSurface)
+                            .vagFont(size: 14, weight: .semibold)
                         
-                        let counterIconName = isDarkTheme ? "counter_dark" : "counter"
-                        Image(counterIconName)
+                        Image(isDarkTheme ? "counter_dark" : "counter")
                             .resizable()
-                            .frame(width: 12, height: 12)
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 16, height: 16)
                     }
+                    .foregroundColor(themeManager?.colors.onSurface ?? LightThemeColors.onSurface)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(themeManager?.colors.surface ?? LightThemeColors.surface)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(themeManager?.colors.outline ?? LightThemeColors.outline, lineWidth: 1)
+                            )
+                    )
                 }
-                .buttonStyle(.materialChip)
             }
-            .padding(.horizontal, MaterialSpacing.screenHorizontal)
             
-            // Quick Action Buttons (Android Compact Style)
-            HStack(spacing: MaterialSpacing.sm) {
+            // Quick action buttons - match Android layout
+            HStack(spacing: 8) {
                 // Quick Start Button
-                Button(action: onStartEmptyWorkout) {
-                    VStack(spacing: 6) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(MaterialColors.onSurface)
-                        
-                        Text("Quick Start")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(MaterialColors.onSurface)
-                    }
-                    .padding(.vertical, 12)
-                }
-                .buttonStyle(.materialOutlined(height: 56))
+                QuickActionButton(
+                    icon: "plus",
+                    title: "Quick Start",
+                    action: onStartEmptyWorkout
+                )
                 
-                // New Routine Button  
-                Button(action: onNewRoutine) {
-                    VStack(spacing: 6) {
-                        Image(systemName: "dumbbell")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(MaterialColors.onSurface)
-                        
-                        Text("New Routine")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(MaterialColors.onSurface)
-                    }
-                    .padding(.vertical, 12)
-                }
-                .buttonStyle(.materialOutlined(height: 56))
+                // New Routine Button
+                QuickActionButton(
+                    icon: "gym",
+                    title: "New Routine", 
+                    action: onNewRoutine
+                )
             }
-            .padding(.horizontal, MaterialSpacing.screenHorizontal)
         }
-        .padding(.vertical, MaterialSpacing.sm)
+        .padding(.horizontal, MaterialSpacing.lg)
+        .padding(.vertical, 8)
+    }
+}
+
+// MARK: - QuickActionButton
+struct QuickActionButton: View {
+    @Environment(\.themeManager) private var themeManager
+    let icon: String
+    let title: String
+    let action: () -> Void
+    
+    private var isDarkTheme: Bool {
+        switch themeManager?.currentTheme {
+        case .dark:
+            return true
+        case .neutral, .light, .none:
+            return false
+        }
+    }
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                // Use custom icons like Android
+                if title == "Quick Start" {
+                    Image("plus")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 24, height: 24)
+                } else {
+                    Image(isDarkTheme ? "gym_dark" : "gym")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 24, height: 24)
+                }
+                
+                Text(title)
+                    .vagFont(size: 13, weight: .semibold)
+                    .foregroundColor(themeManager?.colors.onSurface ?? LightThemeColors.onSurface)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 56)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(themeManager?.colors.surface ?? LightThemeColors.surface)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(themeManager?.colors.outline ?? LightThemeColors.outline, lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
     }
 }

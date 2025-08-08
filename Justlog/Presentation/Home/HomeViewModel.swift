@@ -5,19 +5,23 @@
 //  Created by Mohmed Rimshad on 28/06/2025.
 //
 
-
-// Presentation/Home/HomeViewModel.swift
 import Foundation
 import Combine
-import os.log
 
 @MainActor
 class HomeViewModel: ObservableObject {
     
     // MARK: - Published Properties
-    @Published var workoutState: WorkoutState = .initial
-    @Published var currentWorkout: Workout?
-    @Published var weeklyCalendar: [WeeklyCalendarDay] = []
+    @Published var workouts: [Workout] = []
+    @Published var subscription = UserSubscription()
+    @Published var isLoading = false
+    @Published var errorMessage: String? = nil
+    @Published var selectedDate = Date()
+    @Published var weekDates: [WeeklyCalendarDay] = []
+    @Published var activeWorkout: Workout? = nil
+    @Published var showConflictDialog = false
+    @Published var conflictWorkout: Workout? = nil
+    @Published var currentUser: User? = nil
     
     // MARK: - Private Properties
     private let workoutRepository: WorkoutRepository
@@ -25,7 +29,42 @@ class HomeViewModel: ObservableObject {
     private let workoutSessionManager: WorkoutSessionManager
     private var cancellables = Set<AnyCancellable>()
     
-    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "JustLog", category: "HomeViewModel")
+    // MARK: - Computed Properties
+    var filteredWorkouts: [Workout] {
+        let isPremium = subscription.tier == .premium && subscription.isActive
+        
+        if isPremium {
+            return workouts
+        } else {
+            // Free users: show max 3 routines
+            return Array(workouts.prefix(3))
+        }
+    }
+    
+    var hiddenWorkoutCount: Int {
+        let isPremium = subscription.tier == .premium && subscription.isActive
+        return isPremium ? 0 : max(0, workouts.count - 3)
+    }
+    
+    var greeting: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 0..<12:
+            return "Good morning"
+        case 12..<17:
+            return "Good afternoon" 
+        case 17..<21:
+            return "Good evening"
+        default:
+            return "Good night"
+        }
+    }
+    
+    var formattedDate: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE, MMMM d"
+        return formatter.string(from: selectedDate)
+    }
     
     // MARK: - Initialization
     init(
@@ -37,188 +76,186 @@ class HomeViewModel: ObservableObject {
         self.authRepository = authRepository
         self.workoutSessionManager = workoutSessionManager
         
-        setupObservables()
-        loadWorkouts()
-    }
-    
-    // MARK: - Setup
-    private func setupObservables() {
-        // Setup weekly calendar observable
+        setupWeekDates()
+        
         Task {
-            do {
-                guard let userId = try await authRepository.getCurrentUser()?.id else {
-                    throw WorkoutError.userNotAuthenticated
-                }
-                
-                logger.debug("Starting to collect weekly calendar data")
-                
-                // Convert Combine publisher to AsyncSequence for SwiftUI
-                for try await calendar in workoutRepository.getWeeklyCalendar().values {
-                    logger.debug("Received calendar data: \(calendar.count) days")
-                    self.weeklyCalendar = calendar
-                    
-                    for day in calendar {
-                        logger.debug("Day \(day.date) colorHex=\(day.colorHex ?? "nil")")
-                    }
-                }
-            } catch {
-                logger.error("Error collecting calendar data: \(error.localizedDescription)")
-                self.workoutState = .error(error.localizedDescription)
-            }
+            await loadInitialData()
         }
+        
+        // Listen to workout session changes
+        workoutSessionManager.$workoutState
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] sessionState in
+                // For now, create a mock workout based on session state
+                if let state = sessionState {
+                    // Create a temporary workout object from session state
+                    let workout = Workout(
+                        id: state.routineId ?? UUID().uuidString,
+                        name: state.routineName,
+                        userId: "",
+                        exercises: [],
+                        createdAt: Date(),
+                        colorHex: nil
+                    )
+                    self?.activeWorkout = workout
+                } else {
+                    self?.activeWorkout = nil
+                }
+            }
+            .store(in: &cancellables)
     }
     
     // MARK: - Public Methods
-    func loadWorkouts() {
-        Task {
-            do {
-                self.workoutState = .loading
-                
-                guard let userId = try await authRepository.getCurrentUser()?.id else {
-                    throw WorkoutError.userNotAuthenticated
-                }
-                
-                // Subscribe to workout updates
-                for try await workouts in try await workoutRepository.getWorkouts(userId: userId).values {
-                    let sortedWorkouts = sortWorkoutsByLastPerformed(workouts)
-                    
-                    logger.debug("📋 Workouts sorted by last performed:")
-                    for (index, workout) in sortedWorkouts.enumerated() {
-                        let lastPerformed = workout.lastPerformed?.formatted(date: .abbreviated, time: .omitted) ?? "Never"
-                        logger.debug("  \(index + 1). \(workout.name) - Last: \(lastPerformed)")
-                    }
-                    
-                    self.workoutState = .success(sortedWorkouts)
-                }
-            } catch {
-                logger.error("Error in loadWorkouts: \(error.localizedDescription)")
-                self.workoutState = .error("Failed to load workouts: \(error.localizedDescription)")
-            }
-        }
+    func loadInitialData() async {
+        await loadCurrentUser()
+        await loadSubscription()
+        await loadWorkouts()
     }
     
-    func duplicateWorkout(_ workout: Workout) {
-        Task {
-            do {
-                let newName = "\(workout.name) (Copy)"
-                let newWorkout = Workout(
-                    id: newName.lowercased().replacingOccurrences(of: " ", with: "_"),
-                    name: newName,
-                    userId: workout.userId,
-                    exercises: workout.exercises,
-                    createdAt: Date(),
-                    colorHex: workout.colorHex,
-                    lastPerformed: nil // Reset last performed for duplicate
-                )
-                
-                try await workoutRepository.createWorkout(newWorkout)
-                logger.debug("✅ Duplicated workout: \(newName)")
-            } catch {
-                logger.error("❌ Error duplicating workout: \(error.localizedDescription)")
-            }
-        }
+    func refreshData() async {
+        await loadWorkouts()
+        await loadSubscription()
     }
     
-    func deleteWorkout(_ workoutId: String) {
-        Task {
-            do {
-                // Check if there's an active workout session for this routine
-                let currentSession = workoutSessionManager.getWorkoutState()
-                if currentSession?.routineId == workoutId {
-                    // The routine being deleted is currently active, so discard the session
-                    logger.debug("🏋️ Discarding active workout session for deleted routine: \(workoutId)")
-                    workoutSessionManager.discardWorkout()
-                }
-                
-                try await workoutRepository.deleteWorkout(workoutId)
-                logger.debug("✅ Deleted workout: \(workoutId)")
-            } catch {
-                logger.error("❌ Error deleting workout: \(error.localizedDescription)")
-            }
-        }
+    func selectDate(_ date: Date) {
+        selectedDate = date
+        setupWeekDates()
     }
     
-    func signOut() {
-        Task {
-            do {
-                try await authRepository.signOut()
-                self.workoutState = .initial
-                self.currentWorkout = nil
-            } catch {
-                logger.error("Error signing out: \(error.localizedDescription)")
-                self.workoutState = .error("Sign out failed: \(error.localizedDescription)")
-            }
-        }
+    func navigateToPreviousWeek() {
+        let newDate = Calendar.current.date(byAdding: .weekOfYear, value: -1, to: selectedDate) ?? selectedDate
+        selectDate(newDate)
     }
     
-    func retryLoadWorkouts() {
-        loadWorkouts()
+    func navigateToNextWeek() {
+        let newDate = Calendar.current.date(byAdding: .weekOfYear, value: 1, to: selectedDate) ?? selectedDate
+        selectDate(newDate)
+    }
+    
+    func startRoutine(_ workout: Workout) {
+        // Check if there's already an active workout
+        if let active = activeWorkout, active.id != workout.id {
+            conflictWorkout = workout
+            showConflictDialog = true
+            return
+        }
+        
+        // Convert Exercise objects to WorkoutExercise objects
+        let workoutExercises = workout.exercises.map { exercise in
+            WorkoutExercise(
+                exercise: exercise,
+                sets: [] // Empty sets - will be populated during workout
+            )
+        }
+        
+        workoutSessionManager.startWorkout(
+            routineId: workout.id,
+            routineName: workout.name,
+            exercises: workoutExercises
+        )
+    }
+    
+    func continueActiveWorkout() {
+        // Already handled by workoutSessionManager publisher
+    }
+    
+    func endActiveWorkout() {
+        workoutSessionManager.discardWorkout()
+    }
+    
+    func resolveConflict(replaceActive: Bool) {
+        guard let conflictWorkout = conflictWorkout else { return }
+        
+        if replaceActive {
+            workoutSessionManager.discardWorkout()
+            startRoutine(conflictWorkout)
+        }
+        
+        self.conflictWorkout = nil
+        showConflictDialog = false
+    }
+    
+    func dismissConflictDialog() {
+        conflictWorkout = nil
+        showConflictDialog = false
     }
     
     // MARK: - Private Methods
-    
-    /**
-     * Sort workouts by last performed date:
-     * - Workouts never performed come first (top priority)
-     * - Then workouts performed longest ago
-     * - Most recently performed workouts go to bottom
-     */
-    private func sortWorkoutsByLastPerformed(_ workouts: [Workout]) -> [Workout] {
-        return workouts.sorted { workout1, workout2 in
-            // Primary sort: nil lastPerformed (never done) should come first
-            switch (workout1.lastPerformed, workout2.lastPerformed) {
-            case (nil, nil):
-                return false // Equal
-            case (nil, _):
-                return true // workout1 comes first (never performed)
-            case (_, nil):
-                return false // workout2 comes first (never performed)
-            case let (date1?, date2?):
-                return date1 < date2 // Earlier dates come first
-            }
-        }
+    private func loadCurrentUser() async {
+        currentUser = await authRepository.getCurrentUser()
     }
-}
-
-// MARK: - Error Types
-enum WorkoutError: LocalizedError {
-    case userNotAuthenticated
-    case networkError
-    case dataCorruption
     
-    var errorDescription: String? {
-        switch self {
-        case .userNotAuthenticated:
-            return "User not authenticated"
-        case .networkError:
-            return "Network connection error"
-        case .dataCorruption:
-            return "Data corruption detected"
-        }
-    }
-}
-
-// MARK: - Publisher Extensions for Async/Await
-extension Publisher {
-    var values: AsyncThrowingStream<Output, Error> {
-        AsyncThrowingStream { continuation in
-            let cancellable = self.sink(
-                receiveCompletion: { completion in
-                    switch completion {
-                    case .finished:
-                        continuation.finish()
-                    case .failure(let error):
-                        continuation.finish(throwing: error)
+    private func loadSubscription() async {
+        do {
+            let subscriptionPublisher = try await SubscriptionRepositoryImpl().getUserSubscription()
+            subscriptionPublisher
+                .receive(on: DispatchQueue.main)
+                .sink(
+                    receiveCompletion: { _ in },
+                    receiveValue: { [weak self] subscription in
+                        self?.subscription = subscription
                     }
-                },
-                receiveValue: { value in
-                    continuation.yield(value)
-                }
-            )
+                )
+                .store(in: &cancellables)
+        } catch {
+            print("Error loading subscription: \(error)")
+            subscription = UserSubscription()
+        }
+    }
+    
+    private func loadWorkouts() async {
+        guard let user = currentUser else { return }
+        
+        isLoading = true
+        
+        do {
+            let workoutsPublisher = try await workoutRepository.getWorkouts(userId: user.id)
+            workoutsPublisher
+                .receive(on: DispatchQueue.main)
+                .sink(
+                    receiveCompletion: { [weak self] completion in
+                        self?.isLoading = false
+                        if case .failure(let error) = completion {
+                            self?.errorMessage = "Failed to load workouts: \(error.localizedDescription)"
+                        }
+                    },
+                    receiveValue: { [weak self] workouts in
+                        // Sort workouts by creation date (newest first)
+                        self?.workouts = workouts.sorted { $0.createdAt > $1.createdAt }
+                        self?.isLoading = false
+                    }
+                )
+                .store(in: &cancellables)
+        } catch {
+            isLoading = false
+            errorMessage = "Failed to load workouts: \(error.localizedDescription)"
+        }
+    }
+    
+    private func setupWeekDates() {
+        let calendar = Calendar.current
+        let today = Date()
+        
+        weekDates = (0..<7).compactMap { dayOffset in
+            guard let date = calendar.date(byAdding: .day, value: dayOffset, to: today) else { return nil }
             
-            continuation.onTermination = { _ in
-                cancellable.cancel()
-            }
+            let dayFormatter = DateFormatter()
+            dayFormatter.dateFormat = "E"
+            let dayName = dayFormatter.string(from: date)
+            
+            let dayNumber = calendar.component(.day, from: date)
+            let isToday = calendar.isDate(date, inSameDayAs: today)
+            let isSelected = calendar.isDate(date, inSameDayAs: selectedDate)
+            
+            return WeeklyCalendarDay(
+                date: date,
+                dayName: dayName,
+                dayNumber: dayNumber,
+                isToday: isToday,
+                isSelected: isSelected,
+                hasWorkout: false // TODO: Implement workout scheduling
+            )
         }
     }
 }
+

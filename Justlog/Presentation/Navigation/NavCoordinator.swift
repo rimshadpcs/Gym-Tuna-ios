@@ -119,6 +119,11 @@ class NavCoordinator: ObservableObject {
         return parameters
     }
     
+    func getQueryParam(for key: String) -> String? {
+        let parameters = getRouteParameters(currentRoute)
+        return parameters[key]
+    }
+    
     // MARK: - View Management (matching Android pattern)
     func setCreateRoutineView(_ view: CreateRoutineView) {
         print("🏪 NavCoordinator: Setting CreateRoutineView reference")

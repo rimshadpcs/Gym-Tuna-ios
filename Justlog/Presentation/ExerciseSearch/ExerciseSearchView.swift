@@ -10,6 +10,7 @@ import SwiftUI
 struct ExerciseSearchView: View {
     @StateObject private var viewModel: ExerciseSearchViewModel
     @State private var searchText = ""
+    @Environment(\.themeManager) private var themeManager
     let onBack: () -> Void
     let onExerciseSelected: (Exercise) -> Void
     let onCreateExercise: () -> Void
@@ -29,7 +30,7 @@ struct ExerciseSearchView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Top Navigation Bar
-            topNavigationBar
+            topNavigationBar(themeManager: themeManager)
             
             // Search Bar
             searchBar
@@ -60,7 +61,7 @@ struct ExerciseSearchView: View {
     }
     
     // MARK: - Top Navigation Bar
-    private var topNavigationBar: some View {
+    private func topNavigationBar(themeManager: ThemeManager?) -> some View {
         HStack {
             IOSBackButton(action: onBack)
             
@@ -187,7 +188,11 @@ struct ExerciseSearchView: View {
                                     exercise: exercise,
                                     onTap: { 
                                         print("🎯 ExerciseSearchView: Exercise tapped: \(exercise.name)")
-                                        onExerciseSelected(exercise) 
+                                        
+                                        // Send exercise through channel (similar to Kotlin ExerciseChannel.sendExercise)
+                                        ExerciseChannel.shared.sendExercise(exercise)
+                                        
+                                        onExerciseSelected(exercise)
                                     }
                                 )
                                 .padding(.horizontal, MaterialSpacing.screenHorizontal)
@@ -232,6 +237,8 @@ struct ExerciseSearchView: View {
 struct ExerciseItemView: View {
     let exercise: Exercise
     let onTap: () -> Void
+    
+    @Environment(\.themeManager) private var themeManager
     
     @Environment(\.colorScheme) private var colorScheme
     
@@ -341,10 +348,10 @@ struct ExerciseItemView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(.systemGray6))
+                    .fill(themeManager?.colors.surface ?? LightThemeColors.surface)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color(.systemGray4), lineWidth: 1)
+                            .stroke(themeManager?.colors.outline ?? LightThemeColors.outline, lineWidth: 1)
                     )
             )
         }
@@ -354,7 +361,7 @@ struct ExerciseItemView: View {
 
 #Preview {
     ExerciseSearchView(
-        exerciseRepository: ExerciseRepositoryImpl(),
+        exerciseRepository: ExerciseRepositoryImpl(authRepository: AuthRepositoryImpl(userPreferences: UserPreferences.shared, googleSignInHelper: GoogleSignInHelper())),
         onBack: {},
         onExerciseSelected: { _ in },
         onCreateExercise: {}

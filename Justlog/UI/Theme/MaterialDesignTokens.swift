@@ -84,33 +84,47 @@ struct MaterialElevationModifier: ViewModifier {
     }
 }
 
-// MARK: - Material Colors (you can customize these to match your brand)
+// MARK: - Material Colors (Dynamic theme-based colors matching Android)
 struct MaterialColors {
-    // Primary colors
-    static let primary = Color.blue
-    static let primaryVariant = Color.blue.opacity(0.8)
-    static let onPrimary = Color.white
+    // Primary colors - defaults that match your Android light theme
+    static let primary = ThemeColors.black
+    static let onPrimary = ThemeColors.white
+    static let primaryContainer = ThemeColors.lightGray
+    static let onPrimaryContainer = ThemeColors.black
     
     // Secondary colors
-    static let secondary = Color.green
-    static let secondaryVariant = Color.green.opacity(0.8)
-    static let onSecondary = Color.white
+    static let secondary = ThemeColors.black
+    static let onSecondary = ThemeColors.white
+    static let secondaryContainer = ThemeColors.lightGray.opacity(0.12)
+    static let onSecondaryContainer = ThemeColors.black
     
-    // Background colors
-    static let background = Color(.systemBackground)
-    static let onBackground = Color(.label)
+    // Background colors - default to white (light theme)
+    static let background = ThemeColors.white
+    static let onBackground = ThemeColors.black
     
     // Surface colors
-    static let surface = Color(.systemBackground)
-    static let onSurface = Color(.label)
+    static let surface = ThemeColors.white
+    static let onSurface = ThemeColors.black
+    static let surfaceVariant = ThemeColors.lightGray
+    static let onSurfaceVariant = ThemeColors.darkGray
     
-    // Error colors
+    // Error colors (fixed across themes)
     static let error = Color.red
     static let onError = Color.white
+    static let errorContainer = Color.red.opacity(0.12)
+    static let onErrorContainer = Color.red
     
     // Outline colors
-    static let outline = Color(.systemGray4)
-    static let outlineVariant = Color(.systemGray5)
+    static let outline = ThemeColors.black
+    static let outlineVariant = ThemeColors.black.opacity(0.5)
+    
+    // Additional Material 3 colors
+    static let shadow = Color.black.opacity(0.2)
+    static let scrim = Color.black.opacity(0.32)
+    static let surfaceTint = primary
+    static let inverseSurface = onSurface
+    static let inverseOnSurface = surface
+    static let inversePrimary = onPrimary
 }
 
 // MARK: - Material Design Component Tokens

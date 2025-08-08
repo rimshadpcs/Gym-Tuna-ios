@@ -20,7 +20,6 @@ struct CreateRoutineView: View {
     let onRoutineCreated: () -> Void
     let onAddExercise: () -> Void
     let onNavigateToSubscription: () -> Void
-    @ObservedObject private var createRoutineManager: CreateRoutineManager
     
     private let routineId: String?
     
@@ -28,8 +27,8 @@ struct CreateRoutineView: View {
     init(
         workoutRepository: WorkoutRepository,
         authRepository: AuthRepository,
+        subscriptionRepository: SubscriptionRepository,
         routineId: String? = nil,
-        createRoutineManager: CreateRoutineManager,
         onBack: @escaping () -> Void,
         onRoutineCreated: @escaping () -> Void,
         onAddExercise: @escaping () -> Void,
@@ -39,11 +38,10 @@ struct CreateRoutineView: View {
         let viewModel = CreateRoutineViewModel(
             workoutRepository: workoutRepository,
             authRepository: authRepository,
+            subscriptionRepository: subscriptionRepository,
             routineId: routineId
         )
         self._viewModel = StateObject(wrappedValue: viewModel)
-        
-        self.createRoutineManager = createRoutineManager
         self.onBack = onBack
         self.onRoutineCreated = onRoutineCreated
         self.onAddExercise = onAddExercise
@@ -59,14 +57,23 @@ struct CreateRoutineView: View {
                     print("🏗️ CreateRoutineView: View appeared. Current exercises: \(viewModel.selectedExercises.count)")
                     print("🏗️ CreateRoutineView: Exercise details: \(viewModel.selectedExercises.map { $0.name })")
                     
-                    // Set up the manager to call our addExercise function
-                    print("🏗️ CreateRoutineView: Setting up addExercise function in manager")
-                    createRoutineManager.setAddExerciseFunction { exercise in
-                        print("🎯 CreateRoutineView: addExercise closure called for: \(exercise.name)")
-                        viewModel.addExercise(exercise)
-                        
-                        // Note: UI feedback will be handled separately since this is just for the data
+                    // Check for pending exercises from ExerciseChannel (similar to Kotlin LaunchedEffect)
+                    if ExerciseChannel.shared.hasPendingExercise() {
+                        if let exercise = ExerciseChannel.shared.consumeExercise() {
+                            print("🎯 CreateRoutineView: Consuming pending exercise: \(exercise.name)")
+                            viewModel.addExercise(exercise)
+                            
+                            // Show visual feedback
+                            addedExerciseName = exercise.name
+                            showExerciseAddedFeedback = true
+                            
+                            // Hide feedback after 2 seconds
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                                showExerciseAddedFeedback = false
+                            }
+                        }
                     }
+                    
                 }
             
             VStack(spacing: 0) {
@@ -124,12 +131,14 @@ struct CreateRoutineView: View {
             }
         }
         .sheet(isPresented: $viewModel.showUpgradeDialog) {
-            PremiumUpgradeSheet(
+            PremiumUpgradeDialog(
                 onDismiss: { viewModel.hideUpgradeDialog() },
                 onUpgrade: {
                     viewModel.hideUpgradeDialog()
                     onNavigateToSubscription()
-                }
+                },
+                title: "Ready for More Routines?",
+                message: "You've created 3 amazing routines! Ready to unlock unlimited routines and premium features?"
             )
         }
         .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {

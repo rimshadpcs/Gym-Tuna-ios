@@ -26,6 +26,7 @@ class CreateRoutineViewModel: ObservableObject {
     // MARK: - Private Properties
     private let workoutRepository: WorkoutRepository
     private let authRepository: AuthRepository
+    private let subscriptionRepository: SubscriptionRepository
     private var cancellables = Set<AnyCancellable>()
     
     // Routine being edited (nil for new routine)
@@ -33,10 +34,11 @@ class CreateRoutineViewModel: ObservableObject {
     
     // MARK: - Initialization
     
-    init(workoutRepository: WorkoutRepository, authRepository: AuthRepository, routineId: String? = nil) {
+    init(workoutRepository: WorkoutRepository, authRepository: AuthRepository, subscriptionRepository: SubscriptionRepository, routineId: String? = nil) {
         print("🏗️ CreateRoutineViewModel: Initializing ViewModel for routineId: \(routineId ?? "new")")
         self.workoutRepository = workoutRepository
         self.authRepository = authRepository
+        self.subscriptionRepository = subscriptionRepository
         self.routineId = routineId
         
         Task {
@@ -190,10 +192,18 @@ class CreateRoutineViewModel: ObservableObject {
     
     private func loadSubscriptionStatus() async {
         do {
-            // TODO: Implement subscription repository when available
-            // For now, assume free tier
-            isPremium = false
-            print("Subscription loaded - isPremium: \(isPremium)")
+            let subscriptionPublisher = try await subscriptionRepository.getUserSubscription()
+            subscriptionPublisher
+                .receive(on: DispatchQueue.main)
+                .sink(
+                    receiveCompletion: { _ in },
+                    receiveValue: { [weak self] subscription in
+                        self?.isPremium = subscription.tier == .premium && subscription.isActive
+                        print("Subscription loaded - isPremium: \(subscription.tier == .premium && subscription.isActive)")
+                        self?.updateRoutineLimitStatus()
+                    }
+                )
+                .store(in: &cancellables)
         } catch {
             print("Error loading subscription: \(error)")
             isPremium = false

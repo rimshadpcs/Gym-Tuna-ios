@@ -5,13 +5,12 @@
 //  Created by Mohmed Rimshad on 28/06/2025.
 //
 
-
-// Presentation/Home/HomeScreen.swift
 import SwiftUI
 
 struct HomeScreen: View {
-    @StateObject private var viewModel: HomeViewModel
-    @ObservedObject private var workoutSessionManager: WorkoutSessionManager
+    @ObservedObject var viewModel: HomeViewModel
+    @ObservedObject var workoutSessionManager: WorkoutSessionManager
+    @Environment(\.themeManager) private var themeManager
     
     // Navigation actions
     let onSignOut: () -> Void
@@ -26,16 +25,6 @@ struct HomeScreen: View {
     let onNavigateToCounter: () -> Void
     let onNavigateToRoutinePreview: (String) -> Void
     
-    // State for conflict dialog
-    @State private var showWorkoutConflictDialog = false
-    @State private var pendingRoutineId: String?
-    @State private var pendingRoutineName: String?
-    
-    // Computed property for active workout
-    private var hasActiveWorkout: Bool {
-        workoutSessionManager.getWorkoutState() != nil
-    }
-    
     init(
         viewModel: HomeViewModel,
         workoutSessionManager: WorkoutSessionManager,
@@ -49,9 +38,9 @@ struct HomeScreen: View {
         onNavigateToHistory: @escaping () -> Void,
         onNavigateToWorkout: @escaping (String?, String?) -> Void,
         onNavigateToCounter: @escaping () -> Void,
-        onNavigateToRoutinePreview: @escaping (String) -> Void = { _ in }
+        onNavigateToRoutinePreview: @escaping (String) -> Void
     ) {
-        self._viewModel = StateObject(wrappedValue: viewModel)
+        self.viewModel = viewModel
         self.workoutSessionManager = workoutSessionManager
         self.onSignOut = onSignOut
         self.onStartEmptyWorkout = onStartEmptyWorkout
@@ -68,241 +57,211 @@ struct HomeScreen: View {
     
     var body: some View {
         ZStack {
-            Color(uiColor: .systemBackground)
+            (themeManager?.colors.background ?? LightThemeColors.background)
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
-                // Top Bar (Material Design spacing)
-                TopBarView(onSettingsClick: onNavigateToSettings)
-                    .padding(.horizontal, MaterialSpacing.screenHorizontal)
-                    .padding(.top, MaterialSpacing.lg)
+                // Top Bar
+                TopBarView(
+                    greeting: viewModel.greeting,
+                    formattedDate: viewModel.formattedDate,
+                    onSettingsClick: onNavigateToSettings
+                )
+                .padding(.horizontal, MaterialSpacing.screenHorizontal)
+                .padding(.top, MaterialSpacing.md)
                 
                 // Main Content
                 ScrollView {
-                    LazyVStack(spacing: MaterialSpacing.sectionSpacing) {
-                        // Weekly Calendar
+                    LazyVStack(spacing: 12) {
+                        // Weekly Calendar Strip
                         WeeklyCalendarStrip(
-                            weeklyCalendar: viewModel.weeklyCalendar,
+                            weekDates: viewModel.weekDates,
+                            selectedDate: viewModel.selectedDate,
+                            onDateSelected: viewModel.selectDate,
                             onHistoryClick: onNavigateToHistory
                         )
+                        .padding(.horizontal, MaterialSpacing.screenHorizontal)
                         
-                        // Quick Actions
+                        // Quick Actions Section
                         QuickActionsSection(
-                            onStartEmptyWorkout: handleQuickStart,
+                            onStartEmptyWorkout: onStartEmptyWorkout,
                             onNewRoutine: onNewRoutine,
                             onNavigateToCounter: onNavigateToCounter
                         )
+                        .padding(.horizontal, MaterialSpacing.screenHorizontal)
                         
                         // My Routines Section
                         VStack(spacing: MaterialSpacing.lg) {
-                            // Header
+                            // Section Header
                             HStack {
                                 Text("My Routines")
-                                    .font(MaterialTypography.headline6)
-                                    .foregroundColor(MaterialColors.onBackground)
+                                    .vagFont(size: 18, weight: .bold)
+                                    .foregroundColor(themeManager?.colors.onBackground ?? LightThemeColors.onBackground)
                                 
                                 Spacer()
                             }
                             .padding(.horizontal, MaterialSpacing.screenHorizontal)
                             
                             // Workouts List
-                            WorkoutsList(
-                                workoutState: viewModel.workoutState,
-                                onStartWorkout: handleWorkoutStart,
-                                onRoutineNameClick: onNavigateToRoutinePreview,
-                                onDuplicateWorkout: viewModel.duplicateWorkout,
-                                onEditWorkout: { workout in onEditRoutine(workout.id) },
-                                onDeleteWorkout: { workout in viewModel.deleteWorkout(workout.id) }
-                            )
+                            if viewModel.isLoading {
+                                ProgressView()
+                                    .scaleEffect(1.2)
+                                    .padding(.vertical, 40)
+                            } else if viewModel.filteredWorkouts.isEmpty {
+                                EmptyRoutinesState(onNewRoutine: onNewRoutine)
+                                    .padding(.horizontal, MaterialSpacing.screenHorizontal)
+                            } else {
+                                LazyVStack(spacing: MaterialSpacing.sm) {
+                                    ForEach(viewModel.filteredWorkouts) { workout in
+                                        WorkoutItemView(
+                                            workout: workout,
+                                            onStartClick: { onStartRoutine(workout.id) },
+                                            onRoutineNameClick: { onNavigateToRoutinePreview(workout.id) },
+                                            onEditClick: { onEditRoutine(workout.id) }
+                                        )
+                                        .padding(.horizontal, MaterialSpacing.screenHorizontal)
+                                    }
+                                    
+                                    // Hidden routines prompt for free users
+                                    if viewModel.hiddenWorkoutCount > 0 {
+                                        HiddenRoutinesPrompt(
+                                            hiddenCount: viewModel.hiddenWorkoutCount,
+                                            onUpgrade: {
+                                                // TODO: Navigate to subscription
+                                            }
+                                        )
+                                        .padding(.horizontal, MaterialSpacing.screenHorizontal)
+                                    }
+                                }
+                            }
                         }
                     }
-                    .padding(.bottom, hasActiveWorkout ? 100 : MaterialSpacing.lg)
+                    .padding(.bottom, viewModel.activeWorkout != nil ? 100 : MaterialSpacing.lg)
                 }
             }
             
             // Bottom Workout Banner
-            if hasActiveWorkout {
+            if let activeWorkout = viewModel.activeWorkout {
                 VStack {
                     Spacer()
                     BottomWorkoutBanner(
-                        workoutSessionManager: workoutSessionManager,
-                        onResumeClick: handleResumeWorkout,
-                        onDiscardClick: handleDiscardWorkout
+                        workout: activeWorkout,
+                        onResumeClick: { onNavigateToWorkout(activeWorkout.id, activeWorkout.name) },
+                        onDiscardClick: viewModel.endActiveWorkout
                     )
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
-                .animation(.easeInOut, value: hasActiveWorkout)
+                .animation(.easeInOut(duration: 0.3), value: viewModel.activeWorkout != nil)
             }
         }
-        .sheet(isPresented: $showWorkoutConflictDialog) {
-            if let currentSession = workoutSessionManager.getWorkoutState(),
-               let pendingName = pendingRoutineName {
-                ConflictWorkoutDialog(
-                    currentWorkoutName: currentSession.routineName,
-                    newWorkoutName: pendingName,
-                    onResumeCurrentWorkout: handleResumeCurrentWorkout,
-                    onDiscardAndStartNew: handleDiscardAndStartNew,
-                    onCancel: handleCancelConflict
-                )
-            }
-        }
-    }
-    
-    // MARK: - Action Handlers
-    
-    private func handleQuickStart() {
-        let currentSession = workoutSessionManager.getWorkoutState()
-        if currentSession != nil {
-            pendingRoutineId = nil
-            pendingRoutineName = "Quick Workout"
-            showWorkoutConflictDialog = true
-        } else {
-            onNavigateToWorkout(nil, "Quick Workout")
-        }
-    }
-    
-    private func handleWorkoutStart(_ workoutId: String) {
-        guard let workout = getWorkoutById(workoutId) else { return }
-        
-        let currentSession = workoutSessionManager.getWorkoutState()
-        if currentSession != nil {
-            pendingRoutineId = workoutId
-            pendingRoutineName = workout.name
-            showWorkoutConflictDialog = true
-        } else {
-            onStartRoutine(workoutId)
-        }
-    }
-    
-    private func handleResumeWorkout() {
-        let sessionState = workoutSessionManager.getWorkoutState()
-        
-        if let sessionState = sessionState {
-            print("🏋️ Session found: \(sessionState.routineName)")
-            print("🏋️ Calling onNavigateToWorkout(nil, \(sessionState.routineName))")
-            onNavigateToWorkout(nil, sessionState.routineName)
-        } else {
-            print("❌ No session found for resume!")
-        }
-    }
-    
-    private func handleDiscardWorkout() {
-        print("🏋️ Discard clicked")
-        workoutSessionManager.discardWorkout()
-    }
-    
-    private func handleResumeCurrentWorkout() {
-        showWorkoutConflictDialog = false
-        pendingRoutineId = nil
-        pendingRoutineName = nil
-        
-        if let currentSession = workoutSessionManager.getWorkoutState() {
-            onNavigateToWorkout(nil, currentSession.routineName)
-        }
-    }
-    
-    private func handleDiscardAndStartNew() {
-        showWorkoutConflictDialog = false
-        workoutSessionManager.discardWorkout()
-        
-        if let routineId = pendingRoutineId {
-            onStartRoutine(routineId)
-        }
-        
-        pendingRoutineId = nil
-        pendingRoutineName = nil
-    }
-    
-    private func handleCancelConflict() {
-        showWorkoutConflictDialog = false
-        pendingRoutineId = nil
-        pendingRoutineName = nil
-    }
-    
-    // MARK: - Helper Methods
-    
-    private func getWorkoutById(_ workoutId: String) -> Workout? {
-        guard case let .success(workouts) = viewModel.workoutState else { return nil }
-        return workouts.first { $0.id == workoutId }
-    }
-}
-
-// MARK: - WorkoutsList Component
-struct WorkoutsList: View {
-    let workoutState: WorkoutState
-    let onStartWorkout: (String) -> Void
-    let onRoutineNameClick: (String) -> Void
-    let onDuplicateWorkout: (Workout) -> Void
-    let onEditWorkout: (Workout) -> Void
-    let onDeleteWorkout: (Workout) -> Void
-    
-    var body: some View {
-        switch workoutState {
-        case .success(let workouts):
-            if workouts.isEmpty {
-                EmptyRoutinesState()
-            } else {
-                LazyVStack(spacing: MaterialSpacing.sm) {
-                    ForEach(workouts) { workout in
-                        WorkoutItemView(
-                            workout: workout,
-                            onStartClick: { onStartWorkout(workout.id) },
-                            onRoutineNameClick: { onRoutineNameClick(workout.id) },
-                            onDuplicate: { onDuplicateWorkout(workout) },
-                            onEdit: { onEditWorkout(workout) },
-                            onDelete: { onDeleteWorkout(workout) }
-                        )
-                        .padding(.horizontal, MaterialSpacing.screenHorizontal)
-                    }
+        .alert("Workout Conflict", isPresented: $viewModel.showConflictDialog) {
+            Button("Resume Current") {
+                viewModel.resolveConflict(replaceActive: false)
+                if let activeWorkout = viewModel.activeWorkout {
+                    onNavigateToWorkout(activeWorkout.id, activeWorkout.name)
                 }
             }
             
-        case .loading:
-            VStack {
-                ProgressView()
-                    .scaleEffect(1.2)
-                Text("Loading workouts...")
-                    .foregroundColor(.secondary)
-                    .padding(.top, 8)
+            Button("Start New", role: .destructive) {
+                viewModel.resolveConflict(replaceActive: true)
+                if let conflictWorkout = viewModel.conflictWorkout {
+                    onNavigateToWorkout(conflictWorkout.id, conflictWorkout.name)
+                }
             }
-            .frame(height: 200)
             
-        case .error(let message):
-            VStack(spacing: 16) {
-                Text("Error loading workouts")
-                    .foregroundColor(.red)
+            Button("Cancel", role: .cancel) {
+                viewModel.dismissConflictDialog()
+            }
+        } message: {
+            if let activeWorkout = viewModel.activeWorkout,
+               let conflictWorkout = viewModel.conflictWorkout {
+                Text("You have an active workout '\(activeWorkout.name)'. What would you like to do?")
+            }
+        }
+        .refreshable {
+            await viewModel.refreshData()
+        }
+        .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
+            Button("OK") {
+                viewModel.errorMessage = nil
+            }
+        } message: {
+            Text(viewModel.errorMessage ?? "")
+        }
+    }
+    
+    // MARK: - EmptyRoutinesState Component
+    struct EmptyRoutinesState: View {
+        @Environment(\.themeManager) private var themeManager
+        let onNewRoutine: () -> Void
+        
+        var body: some View {
+            VStack(spacing: MaterialSpacing.lg) {
+                Image(systemName: "dumbbell")
+                    .font(.system(size: 48))
+                    .foregroundColor(themeManager?.colors.onSurface.opacity(0.5) ?? LightThemeColors.onSurface.opacity(0.5))
                 
-                Button("Retry") {
-                    // Retry action would be passed from parent
+                Text("No routines yet")
+                    .vagFont(size: 18, weight: .medium)
+                    .foregroundColor(themeManager?.colors.onSurface ?? LightThemeColors.onSurface)
+                
+                Text("Create your first workout routine to get started with your fitness journey.")
+                    .vagFont(size: 14, weight: .regular)
+                    .foregroundColor(themeManager?.colors.onSurface.opacity(0.7) ?? LightThemeColors.onSurface.opacity(0.7))
+                    .multilineTextAlignment(.center)
+                
+                Button("Create Routine") {
+                    onNewRoutine()
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.materialPrimary)
             }
-            .frame(height: 200)
-            
-        case .initial, .idle:
-            EmptyView()
+            .padding(.vertical, 40)
         }
     }
-}
+    
+    // MARK: - HiddenRoutinesPrompt Component
+    struct HiddenRoutinesPrompt: View {
+        @Environment(\.themeManager) private var themeManager
+        let hiddenCount: Int
+        let onUpgrade: () -> Void
+        
+        var body: some View {
+            HStack(spacing: 12) {
+                Image(systemName: "star.fill")
+                    .foregroundColor(themeManager?.colors.onSurface ?? .black)
+                    .font(.system(size: 16))
 
-// MARK: - EmptyRoutinesState Component
-struct EmptyRoutinesState: View {
-    var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "dumbbell")
-                .font(.system(size: 64))
-                .foregroundColor(.secondary)
-            
-            Text("No routines yet")
-                .font(.title3)
-                .fontWeight(.medium)
-                .foregroundColor(.secondary)
-            
-            Text("Create a new routine to get started")
-                .font(.body)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("You need to upgrade to use more routines")
+                        .vagFont(size: 14, weight: .medium)
+                        .foregroundColor(themeManager?.colors.onSurface ?? .black)
+                }
+
+                Spacer()
+
+                Button(action: onUpgrade) {
+                    Text("Upgrade")
+                        .vagFont(size: 13, weight: .medium)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(themeManager?.colors.onSurface ?? .black)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(themeManager?.colors.surface ?? Color(.systemGray6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(themeManager?.colors.onSurface ?? .black, lineWidth: 1)
+                    )
+            )
         }
-        .padding(16)
+
     }
 }

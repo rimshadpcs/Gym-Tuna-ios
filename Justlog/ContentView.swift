@@ -17,6 +17,10 @@ struct ContentView: View {
         ExerciseRepositoryImpl()
     }
     
+    private var workoutHistoryRepository: WorkoutHistoryRepository {
+        WorkoutHistoryRepositoryImpl()
+    }
+    
     private var authViewModel: AuthViewModel {
         AuthViewModel(
             authRepository: authRepository,
@@ -26,12 +30,16 @@ struct ContentView: View {
     }
     
     var body: some View {
-        NavGraph(
-            authViewModel: authViewModel,
-            authRepository: authRepository,
-            workoutRepository: workoutRepository,
-            exerciseRepository: exerciseRepository
-        )
+        JustlogTheme(userPreferences: userPreferences) {
+            NavGraph(
+                authViewModel: authViewModel,
+                authRepository: authRepository,
+                workoutRepository: workoutRepository,
+                exerciseRepository: exerciseRepository,
+                workoutHistoryRepository: workoutHistoryRepository,
+                userPreferences: userPreferences
+            )
+        }
     }
 }
 

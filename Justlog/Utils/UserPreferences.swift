@@ -2,23 +2,9 @@
 import Foundation
 import Combine
 
-enum WeightUnit: String, CaseIterable {
-    case kg = "KG"
-    case lbs = "LBS"
-}
-
-enum DistanceUnit: String, CaseIterable {
-    case km = "KM"
-    case miles = "MILES"
-}
-
-enum AppTheme: String, CaseIterable {
-    case neutral = "NEUTRAL"
-    case light = "LIGHT"
-    case dark = "DARK"
-}
-
 class UserPreferences: ObservableObject {
+    static let shared = UserPreferences()
+    
     private let userDefaults = UserDefaults.standard
     private let logger = "UserPreferences"
     
@@ -92,6 +78,31 @@ class UserPreferences: ObservableObject {
     func setDistanceUnit(_ unit: DistanceUnit) {
         print("\(logger): Setting distance unit to: \(unit.rawValue)")
         self.distanceUnit = unit
+    }
+    
+    // MARK: - Async Methods
+    func setWeightUnit(_ unit: WeightUnit) async {
+        await MainActor.run {
+            setWeightUnit(unit)
+        }
+    }
+    
+    func setDistanceUnit(_ unit: DistanceUnit) async {
+        await MainActor.run {
+            setDistanceUnit(unit)
+        }
+    }
+    
+    func setAppTheme(_ theme: AppTheme) async {
+        await MainActor.run {
+            setAppTheme(theme)
+        }
+    }
+    
+    func clearPreferences() async {
+        await MainActor.run {
+            clearPreferences()
+        }
     }
     
     func clearPreferences() {

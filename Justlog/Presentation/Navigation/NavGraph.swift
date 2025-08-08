@@ -3,31 +3,52 @@ import Combine
 
 struct NavGraph: View {
     @StateObject private var coordinator = NavCoordinator()
-    @StateObject private var workoutSessionManager = WorkoutSessionManager()
+    @StateObject private var workoutSessionManager = WorkoutSessionManager.shared
+    @StateObject private var homeViewModel: HomeViewModel
     @ObservedObject var authViewModel: AuthViewModel
     let authRepository: AuthRepository
     let workoutRepository: WorkoutRepository
     let exerciseRepository: ExerciseRepository
+    let workoutHistoryRepository: WorkoutHistoryRepository
+    let userPreferences: UserPreferences
     
     @State private var currentRoute: String = Screen.auth.route
-    @StateObject private var createRoutineManager = CreateRoutineManager()
+
+    init(authViewModel: AuthViewModel, authRepository: AuthRepository, workoutRepository: WorkoutRepository, exerciseRepository: ExerciseRepository, workoutHistoryRepository: WorkoutHistoryRepository, userPreferences: UserPreferences) {
+        self.authRepository = authRepository
+        self.workoutRepository = workoutRepository
+        self.exerciseRepository = exerciseRepository
+        self.workoutHistoryRepository = workoutHistoryRepository
+        self.userPreferences = userPreferences
+        _authViewModel = ObservedObject(wrappedValue: authViewModel)
+        _homeViewModel = StateObject(wrappedValue: HomeViewModel(
+            workoutRepository: workoutRepository,
+            authRepository: authRepository,
+            workoutSessionManager: WorkoutSessionManager.shared
+        ))
+    }
     
     var body: some View {
-        NavigationStack {
-            currentScreenView
-                .onReceive(authViewModel.$authState) { authState in
-                    handleAuthStateChange(authState)
-                }
-                .onAppear {
+        if #available(iOS 16.0, *) {
+            NavigationStack {
+                currentScreenView
+                    .onReceive(authViewModel.$authState) { authState in
+                        handleAuthStateChange(authState)
+                    }
+                    .onAppear {
+                
                     coordinator.setupWorkoutNavigation()
-                }
-        }
-        .sheet(isPresented: $coordinator.isPresenting) {
-            if let presentedScreen = coordinator.presentedScreen {
-                NavigationView {
-                    PlaceholderView(screenName: "Presented: \(presentedScreen.rawValue)", coordinator: coordinator)
+                    }
+            }
+            .sheet(isPresented: $coordinator.isPresenting) {
+                if let presentedScreen = coordinator.presentedScreen {
+                    NavigationView {
+                        PlaceholderView(screenName: "Presented: \(presentedScreen.rawValue)", coordinator: coordinator)
+                    }
                 }
             }
+        } else {
+            // Fallback on earlier versions
         }
     }
     
@@ -39,29 +60,29 @@ struct NavGraph: View {
         case .home:
             homeScreenView
         case .activeWorkout:
-            PlaceholderView(screenName: "Active Workout", coordinator: coordinator)
+            activeWorkoutScreenView
         case .createRoutine:
             createRoutineScreenView
         case .exerciseSearch:
             exerciseSearchScreenView
         case .history:
-            PlaceholderView(screenName: "History", coordinator: coordinator)
+            historyScreenView
         case .workoutDetail:
             PlaceholderView(screenName: "Workout Detail", coordinator: coordinator)
         case .settings:
-            PlaceholderView(screenName: "Settings", coordinator: coordinator)
+            settingsScreenView
         case .profile:
             PlaceholderView(screenName: "Profile", coordinator: coordinator)
         case .subscription:
-            PlaceholderView(screenName: "Subscription", coordinator: coordinator)
+            subscriptionScreenView
         case .counter:
-            PlaceholderView(screenName: "Counter", coordinator: coordinator)
+            counterScreenView
         case .createExercise:
             PlaceholderView(screenName: "Create Exercise", coordinator: coordinator)
         case .routinePreview:
             PlaceholderView(screenName: "Routine Preview", coordinator: coordinator)
         case .workout:
-            PlaceholderView(screenName: "Workout", coordinator: coordinator)
+            workoutScreenView
         }
     }
     
@@ -76,11 +97,7 @@ struct NavGraph: View {
     
     private var homeScreenView: some View {
         HomeScreen(
-            viewModel: HomeViewModel(
-                workoutRepository: workoutRepository,
-                authRepository: authRepository,
-                workoutSessionManager: workoutSessionManager
-            ),
+            viewModel: homeViewModel,
             workoutSessionManager: workoutSessionManager,
             onSignOut: {
                 Task {
@@ -91,7 +108,13 @@ struct NavGraph: View {
                 coordinator.navigate(to: .activeWorkout)
             },
             onStartRoutine: { routineId in
-                coordinator.navigate(to: .workout)
+                // Find the routine to get its name
+                if let routine = homeViewModel.workouts.first(where: { $0.id == routineId }) {
+                    let route = Screen.workout.withRoutine(routineId: routineId, routineName: routine.name)
+                    coordinator.navigateWithRoute(route)
+                } else {
+                    coordinator.navigate(to: .workout)
+                }
             },
             onEditRoutine: { routineId in
                 let route = Screen.createRoutine.withRoutineId(routineId)
@@ -110,7 +133,12 @@ struct NavGraph: View {
                 coordinator.navigate(to: .history)
             },
             onNavigateToWorkout: { routineId, routineName in
-                coordinator.navigate(to: .workout)
+                if let routineId = routineId, let routineName = routineName {
+                    let route = Screen.workout.withRoutine(routineId: routineId, routineName: routineName)
+                    coordinator.navigateWithRoute(route)
+                } else {
+                    coordinator.navigate(to: .workout)
+                }
             },
             onNavigateToCounter: {
                 coordinator.navigate(to: .counter)
@@ -128,8 +156,8 @@ struct NavGraph: View {
         return CreateRoutineView(
             workoutRepository: workoutRepository,
             authRepository: authRepository,
+            subscriptionRepository: SubscriptionRepositoryImpl(),
             routineId: routineId,
-            createRoutineManager: createRoutineManager,
             onBack: {
                 coordinator.pop()
             },
@@ -146,22 +174,134 @@ struct NavGraph: View {
     }
     
     private var exerciseSearchScreenView: some View {
-        ExerciseSearchView(
+        let routeParameters = coordinator.getRouteParameters(coordinator.currentRoute)
+        let fromSource = routeParameters["from"]
+        
+        return ExerciseSearchView(
             exerciseRepository: exerciseRepository,
             onBack: {
                 print("🔙 NavGraph: ExerciseSearch - Back button tapped")
                 coordinator.pop()
             },
             onExerciseSelected: { exercise in
-                print("🚀 NavGraph: Exercise selected: \(exercise.name) → Calling CreateRoutineManager")
-                createRoutineManager.addExercise(exercise)
-                print("🔙 NavGraph: Navigating back to CreateRoutine")
+                print("🚀 NavGraph: Exercise selected: \(exercise.name) from source: \(fromSource ?? "routine")")
+                
+                // The exercise has already been sent through ExerciseChannel in ExerciseSearchView
+                // Just navigate back - the channel will handle the exercise delivery
+                print("🔙 NavGraph: Navigating back (exercise sent via ExerciseChannel)")
                 coordinator.pop()
             },
             onCreateExercise: {
                 coordinator.navigate(to: .createExercise)
             }
         )
+    }
+    
+    private var settingsScreenView: some View {
+        SettingsView(
+            authRepository: authRepository,
+            subscriptionRepository: SubscriptionRepositoryImpl(),
+            userPreferences: userPreferences,
+            onBack: {
+                coordinator.pop()
+            },
+            onNavigateToProfile: {
+                coordinator.navigate(to: .profile)
+            },
+            onNavigateToSubscription: {
+                coordinator.navigate(to: .subscription)
+            }
+        )
+    }
+    
+    private var counterScreenView: some View {
+        CounterView(
+            counterRepository: CounterRepositoryImpl(),
+            subscriptionRepository: SubscriptionRepositoryImpl(),
+            authRepository: authRepository,
+            onNavigateToSubscription: {
+                coordinator.navigate(to: .subscription)
+            }
+        )
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            if !coordinator.navigationStack.isEmpty {
+                IOSToolbarBackButton(action: { coordinator.pop() })
+            }
+        }
+    }
+    
+    private var historyScreenView: some View {
+        HistoryView(
+            historyRepository: workoutHistoryRepository,
+            authRepository: authRepository,
+            userPreferences: userPreferences
+        )
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            if !coordinator.navigationStack.isEmpty {
+                IOSToolbarBackButton(action: { coordinator.pop() })
+            }
+        }
+    }
+    
+    private var subscriptionScreenView: some View {
+        SubscriptionView(
+            subscriptionRepository: SubscriptionRepositoryImpl(),
+            onBack: { coordinator.pop() }
+        )
+        .navigationBarHidden(true)
+    }
+    
+    private var workoutScreenView: some View {
+        if let routineId = coordinator.getQueryParam(for: "routineId"),
+           let routineName = coordinator.getQueryParam(for: "routineName") {
+            WorkoutScreen(
+                routineId: routineId,
+                routineName: routineName,
+                onBack: {
+                    coordinator.pop()
+                },
+                onFinish: {
+                    coordinator.navigate(to: .home)
+                },
+                onAddExercise: {
+                    coordinator.navigateWithRoute(Screen.exerciseSearch.withSource("workout"))
+                },
+                onReplaceExercise: {
+                    coordinator.navigateWithRoute(Screen.exerciseSearch.withReplacement())
+                },
+                onNavigateToSubscription: {
+                    coordinator.navigate(to: .subscription)
+                }
+            )
+        } else {
+            // Quick workout - no routine
+            WorkoutScreen(
+                routineId: nil,
+                routineName: "Quick Workout",
+                onBack: {
+                    coordinator.pop()
+                },
+                onFinish: {
+                    coordinator.navigate(to: .home)
+                },
+                onAddExercise: {
+                    coordinator.navigateWithRoute(Screen.exerciseSearch.withSource("workout"))
+                },
+                onReplaceExercise: {
+                    coordinator.navigateWithRoute(Screen.exerciseSearch.withReplacement())
+                },
+                onNavigateToSubscription: {
+                    coordinator.navigate(to: .subscription)
+                }
+            )
+        }
+    }
+    
+    private var activeWorkoutScreenView: some View {
+        // Active workout is the same as workout screen, just different navigation flow
+        workoutScreenView
     }
     
     private func handleAuthStateChange(_ authState: AuthState) {

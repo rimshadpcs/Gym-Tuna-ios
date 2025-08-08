@@ -12,6 +12,9 @@ import SwiftUI
 @MainActor
 class WorkoutSessionManager: ObservableObject {
     
+    // MARK: - Shared Instance
+    static let shared = WorkoutSessionManager()
+    
     // MARK: - Published Properties
     @Published private(set) var workoutDuration: String = "0s"
     @Published private(set) var currentExercise: String? = nil

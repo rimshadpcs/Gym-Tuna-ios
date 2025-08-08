@@ -1,0 +1,550 @@
+//
+//  ExpandableExerciseItem.swift
+//  Justlog
+//
+//  Created by Mohmed Rimshad on 06/08/2025.
+//
+
+import SwiftUI
+
+struct ExerciseCard: View {
+    @Environment(\.themeManager) private var themeManager
+    @ObservedObject private var viewModel: WorkoutViewModel
+    
+    @FocusState private var focusedField: FocusableField?
+    
+    let workoutExercise: WorkoutExercise
+    let weightUnit: WeightUnit
+    let distanceUnit: DistanceUnit
+    let exerciseIndex: Int
+    let totalExercises: Int
+    let isReorderMode: Bool
+    let allSetsCompleted: Bool
+    let isExpanded: Bool
+    let onExpandedChange: (Bool) -> Void
+    let onAddSet: () -> Void
+    let onSetCompleted: (ExerciseSet, Bool) -> Void
+    let onUpdateWeight: (ExerciseSet, Double) -> Void
+    let onUpdateReps: (ExerciseSet, Int) -> Void
+    let onUpdateDistance: (ExerciseSet, Double) -> Void
+    let onUpdateTime: (ExerciseSet, Int) -> Void
+    let onUpdateNotes: (String) -> Void
+    let onDeleteSet: (WorkoutExercise, Int) -> Void
+    let onArrangeExercise: (WorkoutExercise) -> Void
+    let onReplaceExercise: (WorkoutExercise) -> Void
+    let onAddToSuperset: (WorkoutExercise) -> Void
+    let onToggleDropset: (WorkoutExercise) -> Void
+    let onRemoveExercise: (WorkoutExercise) -> Void
+    
+    @State private var notes: String = ""
+    @State private var showOptions = false
+    
+    private var isDarkTheme: Bool {
+        switch themeManager?.currentTheme {
+        case .dark:
+            return true
+        case .neutral, .light, .none:
+            return false
+        }
+    }
+    
+    init(workoutExercise: WorkoutExercise, weightUnit: WeightUnit, distanceUnit: DistanceUnit, exerciseIndex: Int, totalExercises: Int, isReorderMode: Bool, allSetsCompleted: Bool, isExpanded: Bool, viewModel: WorkoutViewModel, onExpandedChange: @escaping (Bool) -> Void, onAddSet: @escaping () -> Void, onSetCompleted: @escaping (ExerciseSet, Bool) -> Void, onUpdateWeight: @escaping (ExerciseSet, Double) -> Void, onUpdateReps: @escaping (ExerciseSet, Int) -> Void, onUpdateDistance: @escaping (ExerciseSet, Double) -> Void, onUpdateTime: @escaping (ExerciseSet, Int) -> Void, onUpdateNotes: @escaping (String) -> Void, onDeleteSet: @escaping (WorkoutExercise, Int) -> Void, onArrangeExercise: @escaping (WorkoutExercise) -> Void, onReplaceExercise: @escaping (WorkoutExercise) -> Void, onAddToSuperset: @escaping (WorkoutExercise) -> Void, onToggleDropset: @escaping (WorkoutExercise) -> Void, onRemoveExercise: @escaping (WorkoutExercise) -> Void) {
+        self.workoutExercise = workoutExercise
+        self.weightUnit = weightUnit
+        self.distanceUnit = distanceUnit
+        self.exerciseIndex = exerciseIndex
+        self.totalExercises = totalExercises
+        self.isReorderMode = isReorderMode
+        self.allSetsCompleted = allSetsCompleted
+        self.isExpanded = isExpanded
+        self.onExpandedChange = onExpandedChange
+        self.onAddSet = onAddSet
+        self.onSetCompleted = onSetCompleted
+        self.onUpdateWeight = onUpdateWeight
+        self.onUpdateReps = onUpdateReps
+        self.onUpdateDistance = onUpdateDistance
+        self.onUpdateTime = onUpdateTime
+        self.onUpdateNotes = onUpdateNotes
+        self.onDeleteSet = onDeleteSet
+        self.onArrangeExercise = onArrangeExercise
+        self.onReplaceExercise = onReplaceExercise
+        self.onAddToSuperset = onAddToSuperset
+        self.onToggleDropset = onToggleDropset
+        self.onRemoveExercise = onRemoveExercise
+        self.viewModel = viewModel
+        self._notes = State(initialValue: workoutExercise.notes)
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Exercise header with icon, name, completion count, and controls
+            exerciseHeaderView
+                .padding(.horizontal, 0)
+                .padding(.vertical, 16)
+                .background(surfaceColor)
+            
+            // Expandable content (only show when expanded and not in reorder mode)
+            if isExpanded && !isReorderMode {
+                expandableContentView
+                    .padding(.bottom, 16)
+            }
+        }
+        .background(surfaceColor)
+        .onAppear {
+            notes = workoutExercise.notes
+        }
+        .sheet(isPresented: $showOptions) {
+            ExerciseOptionsBottomSheet(
+                exerciseName: workoutExercise.exercise.name,
+                isSuperset: workoutExercise.isSuperset,
+                isDropset: workoutExercise.isDropset,
+                onReArrange: { onArrangeExercise(workoutExercise) },
+                onReplace: { onReplaceExercise(workoutExercise) },
+                onToggleSuperset: { onAddToSuperset(workoutExercise) },
+                onToggleDropset: { onToggleDropset(workoutExercise) },
+                onRemove: { onRemoveExercise(workoutExercise) }
+            )
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    handleKeyboardDoneButton()
+                }
+            }
+        }
+    }
+    
+    // MARK: - Computed Properties
+    
+    private var surfaceColor: Color {
+        themeManager?.colors.surface ?? Color(.systemBackground)
+    }
+    
+    private var onSurfaceColor: Color {
+        themeManager?.colors.onSurface ?? .primary
+    }
+    
+    private var secondaryColor: Color {
+        themeManager?.colors.onSurface.opacity(0.7) ?? .secondary
+    }
+    
+    // MARK: - Sub Views
+    
+    private var expandableContentView: some View {
+        VStack(spacing: 16) {
+            // Notes field
+            notesFieldView
+                .padding(.horizontal, 16)
+            
+            // Rest timer - LEFT ALIGNED
+            HStack {
+                restTimerView
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            
+            // Sets header and list
+            setsContentView
+        }
+    }
+    
+    private var setsContentView: some View {
+        VStack(spacing: 8) {
+            setsHeaderView
+                .padding(.horizontal, 16)
+            
+            // Sets list
+            setsListView
+            
+            // Add set button
+            addSetButtonView
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+        }
+    }
+    
+    private var setsListView: some View {
+        VStack(spacing: 8) {
+            let bestSetInSession = calculateBestSetInSession()
+            let historicalBest = calculateHistoricalBest()
+            
+            ForEach(Array(workoutExercise.sets.enumerated()), id: \.offset) { setIndex, set in
+                let isSessionBestPR = bestSetInSession?.setNumber == set.setNumber &&
+                                     set.isCompleted &&
+                                     isNewPersonalRecord(set: set, historicalBest: historicalBest)
+                
+                let _ = print("🏆 PR Check for \(workoutExercise.exercise.name) set \(set.setNumber): bestInSession=\(bestSetInSession?.setNumber ?? -1), completed=\(set.isCompleted), historicalBest=\(historicalBest), isPR=\(isSessionBestPR)")
+                
+                createSetRow(for: set, at: setIndex, isSessionBestPR: isSessionBestPR)
+                    .padding(.horizontal, 0)
+            }
+        }
+    }
+    
+    private func createSetRow(for set: ExerciseSet, at setIndex: Int, isSessionBestPR: Bool) -> some View {
+        SetRowComponent(
+            setNumber: set.setNumber,
+            weightUnit: weightUnit,
+            distanceUnit: distanceUnit,
+            set: set,
+            usesWeight: workoutExercise.exercise.usesWeight,
+            tracksDistance: workoutExercise.exercise.tracksDistance,
+            isTimeBased: workoutExercise.exercise.isTimeBased,
+            isSessionBestPR: isSessionBestPR,
+            focusedField: $focusedField,
+            onCompleted: { isCompleted in
+                handleSetCompletion(set: set, isCompleted: isCompleted, setIndex: setIndex)
+            },
+            onUpdateReps: { reps in onUpdateReps(set, reps) },
+            onUpdateWeight: { weight in onUpdateWeight(set, weight) },
+            onUpdateDistance: { distance in onUpdateDistance(set, distance) },
+            onUpdateTime: { time in onUpdateTime(set, time) },
+            onDelete: { onDeleteSet(workoutExercise, set.setNumber) },
+            onFocusNext: {
+                focusNextField(from: setIndex)
+            }
+        )
+    }
+    
+    private var exerciseHeaderView: some View {
+        HStack(spacing: 12) {
+            // Muscle group icon
+            muscleGroupIconView
+            
+            // Exercise name - LEFT ALIGNED
+            Text(workoutExercise.exercise.name)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(onSurfaceColor)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            
+            if !isReorderMode {
+                headerControlsView
+            } else {
+                reorderControlsView
+            }
+        }
+        .padding(.horizontal, 16)
+    }
+    
+    private var muscleGroupIconView: some View {
+        ZStack {
+            Circle()
+                .fill(surfaceColor)
+                .frame(width: 40, height: 40)
+                .overlay(
+                    Circle()
+                        .stroke(isDarkTheme ? Color.white : Color.black, lineWidth: 1)
+                )
+            
+            Image(workoutExercise.exercise.muscleGroup.getMuscleGroupIcon(isDarkTheme: isDarkTheme))
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 24, height: 24)
+        }
+    }
+    
+    private var headerControlsView: some View {
+        HStack(spacing: 12) {
+            // Set completion count
+            if !workoutExercise.sets.isEmpty {
+                let completedSets = workoutExercise.sets.count { $0.isCompleted }
+                Text("\(completedSets)/\(workoutExercise.sets.count)")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(secondaryColor)
+            }
+            
+            // Expand/collapse button
+            Button(action: { onExpandedChange(!isExpanded) }) {
+                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(secondaryColor)
+            }
+            
+            // Options menu
+            Button(action: { showOptions = true }) {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(secondaryColor)
+                    .rotationEffect(.degrees(90))
+            }
+        }
+    }
+    
+    private var reorderControlsView: some View {
+        VStack(spacing: 4) {
+            Button(action: {
+                if exerciseIndex > 0 {
+                    viewModel.reorderExercises(fromIndex: exerciseIndex, toIndex: exerciseIndex - 1)
+                }
+            }) {
+                Image(systemName: "chevron.up")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(exerciseIndex > 0 ? .primary : .secondary)
+            }
+            .disabled(exerciseIndex <= 0)
+            
+            Button(action: {
+                if exerciseIndex < totalExercises - 1 {
+                    viewModel.reorderExercises(fromIndex: exerciseIndex, toIndex: exerciseIndex + 1)
+                }
+            }) {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(exerciseIndex < totalExercises - 1 ? .primary : .secondary)
+            }
+            .disabled(exerciseIndex >= totalExercises - 1)
+        }
+    }
+    
+    private var notesFieldView: some View {
+        HStack {
+            TextField("Add notes here...", text: $notes)
+                .font(.system(size: 16))
+                .foregroundColor(secondaryColor)
+                .textFieldStyle(PlainTextFieldStyle())
+                .onChange(of: notes) { newNotes in
+                    onUpdateNotes(newNotes)
+                }
+            Spacer()
+        }
+    }
+    
+    private var restTimerView: some View {
+        // Only show if timer is running or paused
+        if viewModel.isRestTimerRunning || viewModel.isRestTimerPaused {
+            RestTimerButton(
+                isRunning: viewModel.isRestTimerRunning,
+                remainingTime: viewModel.restTimerRemaining,
+                totalTime: viewModel.restTimerTotal,
+                isPaused: viewModel.isRestTimerPaused,
+                onStart: { duration in viewModel.startRestTimer(duration) },
+                onStop: {
+                    viewModel.stopRestTimer()
+                    // Timer will disappear automatically since isRunning becomes false
+                },
+                onPauseResume: { viewModel.pauseResumeRestTimer() }
+            )
+        } else {
+            // Show start timer button
+            RestTimerButton(
+                isRunning: false,
+                remainingTime: 0,
+                totalTime: 0,
+                isPaused: false,
+                onStart: { duration in viewModel.startRestTimer(duration) },
+                onStop: { viewModel.stopRestTimer() },
+                onPauseResume: { viewModel.pauseResumeRestTimer() }
+            )
+        }
+    }
+    
+    private var setsHeaderView: some View {
+        HStack(spacing: 0) {
+            // SET
+            Text("SET")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.secondary)
+                .frame(width: 50, alignment: .center)
+            
+            // LAST
+            Text("LAST")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.secondary)
+                .frame(width: 60, alignment: .center)
+            
+            // BEST
+            Text("BEST")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.secondary)
+                .frame(width: 60, alignment: .center)
+            
+            Spacer()
+            
+            // Dynamic headers based on exercise type
+            dynamicHeadersView
+            
+            // Checkbox column space
+            Spacer().frame(width: 44)
+        }
+    }
+    
+    private var dynamicHeadersView: some View {
+        HStack(spacing: 8) {
+            if workoutExercise.exercise.usesWeight {
+                Text(weightUnit == .kg ? "KG" : "LB")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.secondary)
+                    .frame(width: 60, alignment: .center)
+            }
+            
+            if workoutExercise.exercise.tracksDistance {
+                Text(distanceUnit == .km ? "KM" : "MI")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.secondary)
+                    .frame(width: 60, alignment: .center)
+            }
+            
+            if workoutExercise.exercise.isTimeBased {
+                Text("TIME")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.secondary)
+                    .frame(width: 80, alignment: .center)
+            }
+            
+            if !workoutExercise.exercise.isTimeBased {
+                Text("REPS")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.secondary)
+                    .frame(width: 60, alignment: .center)
+            }
+        }
+    }
+    
+    private var addSetButtonView: some View {
+        Button(action: onAddSet) {
+            HStack(spacing: 8) {
+                Image(systemName: "plus")
+                    .font(.system(size: 16, weight: .medium))
+                
+                Text("Add Set")
+                    .font(.system(size: 16, weight: .medium))
+            }
+            .foregroundColor(onSurfaceColor)
+            .frame(maxWidth: .infinity)
+            .frame(height: 44)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(surfaceColor)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(isDarkTheme ? Color.white : Color.black, lineWidth: 1)
+                    )
+            )
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func handleKeyboardDoneButton() {
+        // Find the currently focused field
+        guard let currentFocusedField = focusedField else { return }
+        
+        var nextFieldToFocus: FocusableField? = nil
+        var foundCurrent = false
+        
+        // Iterate through all possible fields to find the next one
+        for setIndex in workoutExercise.sets.indices {
+            let set = workoutExercise.sets[setIndex]
+            
+            let fieldsInOrder: [FocusableField] = [
+                workoutExercise.exercise.usesWeight ? .weight(set.setNumber) : nil,
+                workoutExercise.exercise.tracksDistance ? .distance(set.setNumber) : nil,
+                workoutExercise.exercise.isTimeBased ? .time(set.setNumber) : nil,
+                !workoutExercise.exercise.isTimeBased ? .reps(set.setNumber) : nil
+            ].compactMap { $0 }
+            
+            for field in fieldsInOrder {
+                if foundCurrent {
+                    nextFieldToFocus = field
+                    break
+                }
+                if field == currentFocusedField {
+                    foundCurrent = true
+                }
+            }
+            if nextFieldToFocus != nil { break }
+        }
+        
+        if let nextField = nextFieldToFocus {
+            focusedField = nextField
+        } else {
+            // If no next field in current exercise, try to move to next exercise or dismiss keyboard
+            // For now, just dismiss keyboard if no next field is found
+            focusedField = nil
+        }
+    }
+    
+    private func handleSetCompletion(set: ExerciseSet, isCompleted: Bool, setIndex: Int) {
+        onSetCompleted(set, isCompleted)
+        if isCompleted && setIndex + 1 < workoutExercise.sets.count {
+            // Request focus for the first input field of the next set
+            focusNextField(from: setIndex)
+        }
+    }
+    
+    private func focusNextField(from setIndex: Int) {
+        if setIndex + 1 < workoutExercise.sets.count {
+            let nextSet = workoutExercise.sets[setIndex + 1]
+            
+            // Request focus for the first input field of the next set
+            if workoutExercise.exercise.usesWeight {
+                focusedField = .weight(nextSet.setNumber)
+            } else if workoutExercise.exercise.tracksDistance {
+                focusedField = .distance(nextSet.setNumber)
+            } else if workoutExercise.exercise.isTimeBased {
+                focusedField = .time(nextSet.setNumber)
+            } else {
+                focusedField = .reps(nextSet.setNumber)
+            }
+        }
+    }
+    
+    private func calculateBestSetInSession() -> ExerciseSet? {
+        guard !workoutExercise.sets.isEmpty else { return nil }
+        
+        return workoutExercise.sets.filter { set in
+            set.isCompleted && hasValidData(set: set)
+        }.max(by: { set1, set2 in
+            calculateSetScore(set: set1) < calculateSetScore(set: set2)
+        })
+    }
+    
+    private func calculateHistoricalBest() -> Double {
+        guard let firstSet = workoutExercise.sets.first else { return 0.0 }
+        
+        switch true {
+        case workoutExercise.exercise.usesWeight:
+            let prevWeight = firstSet.previousWeight ?? 0.0
+            let prevReps = firstSet.previousReps ?? 0
+            return prevWeight > 0 && prevReps > 0 ? prevWeight * Double(prevReps) : 0.0
+        case workoutExercise.exercise.tracksDistance:
+            return firstSet.previousDistance ?? 0.0
+        case workoutExercise.exercise.isTimeBased:
+            return Double(firstSet.previousTime ?? 0)
+        default:
+            return Double(firstSet.previousReps ?? 0)
+        }
+    }
+    
+    private func hasValidData(set: ExerciseSet) -> Bool {
+        switch true {
+        case workoutExercise.exercise.usesWeight:
+            return set.weight > 0 && set.reps > 0
+        case workoutExercise.exercise.tracksDistance:
+            return set.distance > 0
+        case workoutExercise.exercise.isTimeBased:
+            return set.time > 0
+        default:
+            return set.reps > 0
+        }
+    }
+    
+    private func calculateSetScore(set: ExerciseSet) -> Double {
+        switch true {
+        case workoutExercise.exercise.usesWeight:
+            return set.weight * Double(set.reps)
+        case workoutExercise.exercise.tracksDistance:
+            return set.distance
+        case workoutExercise.exercise.isTimeBased:
+            return Double(set.time)
+        default:
+            return Double(set.reps)
+        }
+    }
+    
+    private func isNewPersonalRecord(set: ExerciseSet, historicalBest: Double) -> Bool {
+        let currentScore = calculateSetScore(set: set)
+        return currentScore > historicalBest && historicalBest > 0
+    }
+}

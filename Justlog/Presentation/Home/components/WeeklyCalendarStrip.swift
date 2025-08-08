@@ -9,143 +9,151 @@ import SwiftUI
 import Foundation
 
 struct WeeklyCalendarStrip: View {
-    let weeklyCalendar: [WeeklyCalendarDay]
+    @Environment(\.themeManager) private var themeManager
+    let weekDates: [WeeklyCalendarDay]
+    let selectedDate: Date
+    let onDateSelected: (Date) -> Void
     let onHistoryClick: () -> Void
     
-    @Environment(\.colorScheme) private var colorScheme
-    
-    private var isLightTheme: Bool {
-        colorScheme == .light
+    private var isDarkTheme: Bool {
+        switch themeManager?.currentTheme {
+        case .dark:
+            return true
+        case .neutral, .light, .none:
+            return false
+        }
     }
     
     var body: some View {
-        VStack(spacing: MaterialSpacing.lg) {
-            // Header (Material Design style)
+        VStack(spacing: 8) {
+            // Header with "This Week" and History button - match screenshot exactly
             HStack {
                 Text("This Week")
-                    .font(MaterialTypography.headline6)
-                    .foregroundColor(MaterialColors.onBackground)
+                    .vagFont(size: 18, weight: .semibold)
+                    .foregroundColor(themeManager?.colors.onBackground ?? LightThemeColors.onBackground)
                 
                 Spacer()
                 
-                // History Button (Material Chip)
                 Button(action: onHistoryClick) {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 4) {
                         Text("History")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(MaterialColors.onSurface)
-                        
-                        let historyIconName = isLightTheme ? "history" : "history_dark"
-                        Image(historyIconName)
+                            .vagFont(size: 12, weight: .medium)
+                        Image(isDarkTheme ? "history_dark" : "history")
                             .resizable()
-                            .frame(width: 12, height: 12)
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 14, height: 14)
                     }
+                    .foregroundColor(themeManager?.colors.onSurface ?? LightThemeColors.onSurface)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(themeManager?.colors.surface ?? LightThemeColors.surface)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(themeManager?.colors.outline ?? LightThemeColors.outline, lineWidth: 1)
+                            )
+                    )
                 }
-                .buttonStyle(.materialChip)
             }
             
-            // Calendar Days
-            HStack(spacing: MaterialSpacing.xs) {
-                ForEach(weeklyCalendar, id: \.date) { day in
+            // Calendar Days - more compact
+            HStack(spacing: 0) {
+                ForEach(weekDates, id: \.date) { day in
                     DayColumn(
                         day: day,
-                        isToday: Calendar.current.isDateInToday(day.date)
+                        isSelected: Calendar.current.isDate(day.date, inSameDayAs: selectedDate),
+                        onDateSelected: onDateSelected
                     )
                     .frame(maxWidth: .infinity)
                 }
             }
         }
-        .padding(.horizontal, MaterialSpacing.screenHorizontal)
-        .padding(.vertical, MaterialSpacing.lg)
-        .background(MaterialColors.background)
+        .padding(.horizontal, MaterialSpacing.lg)
+        .padding(.vertical, 8)
     }
 }
 
 // MARK: - DayColumn
 struct DayColumn: View {
+    @Environment(\.themeManager) private var themeManager
     let day: WeeklyCalendarDay
-    let isToday: Bool
+    let isSelected: Bool
+    let onDateSelected: (Date) -> Void
     
-    @Environment(\.colorScheme) private var colorScheme
-    
-    private var isLightTheme: Bool {
-        colorScheme == .light
+    var body: some View {
+        Button(action: { onDateSelected(day.date) }) {
+            VStack(spacing: 5) {
+                // Day of week label - more compact
+                Text(day.dayName.uppercased())
+                    .vagFont(size: 10, weight: .medium)
+                    .foregroundColor(themeManager?.colors.onSurface.opacity(0.6) ?? LightThemeColors.onSurface.opacity(0.6))
+                
+                // Day circle - smaller
+                ZStack {
+                    Circle()
+                        .fill(fillColor)
+                        .overlay(
+                            Circle()
+                                .stroke(strokeColor, lineWidth: strokeWidth)
+                        )
+                    
+                    Text("\(day.dayNumber)")
+                        .vagFont(size: 14, weight: textWeight)
+                        .foregroundColor(textColor)
+                }
+                .frame(width: 30, height: 30)
+            }
+        }
+        .buttonStyle(.plain)
     }
     
-    private var dayFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "E"
-        return formatter
-    }
-    
-    private var dayNumber: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "d"
-        return formatter.string(from: day.date)
-    }
-    
-    private var ringColor: Color {
-        if let colorHex = day.colorHex {
-            return Color(hex: colorHex) ?? (isLightTheme ? .gray : .gray)
+    // MARK: - Computed Properties
+    private var fillColor: Color {
+        if day.hasWorkout {
+            return themeManager?.colors.primary.opacity(0.2) ?? LightThemeColors.primary.opacity(0.2)
+        } else if day.isToday {
+            return themeManager?.colors.primary.opacity(0.1) ?? LightThemeColors.primary.opacity(0.1)
+        } else if isSelected {
+            return themeManager?.colors.primary.opacity(0.15) ?? LightThemeColors.primary.opacity(0.15)
         } else {
-            return isLightTheme ? .gray : Color(.lightGray)
+            return Color.clear
         }
     }
     
-    private var fillColor: Color {
-        if let colorHex = day.colorHex {
-            let baseColor = Color(hex: colorHex) ?? .clear
-            return baseColor.opacity(isLightTheme ? 0.35 : 0.45)
-        } else if isToday {
-            return isLightTheme ? Color.gray.opacity(0.10) : Color.white.opacity(0.20)
+    private var strokeColor: Color {
+        if day.hasWorkout {
+            return themeManager?.colors.primary ?? LightThemeColors.primary
+        } else if day.isToday {
+            return themeManager?.colors.primary.opacity(0.5) ?? LightThemeColors.primary.opacity(0.5)
+        } else if isSelected {
+            return themeManager?.colors.primary.opacity(0.7) ?? LightThemeColors.primary.opacity(0.7)
         } else {
-            return .clear
+            return Color.clear
+        }
+    }
+    
+    private var strokeWidth: CGFloat {
+        if day.hasWorkout || day.isToday || isSelected {
+            return 2
+        } else {
+            return 0
         }
     }
     
     private var textColor: Color {
-        if isToday {
-            return .primary
-        } else if day.colorHex != nil {
-            return isLightTheme ? .black : .white
+        if day.hasWorkout || day.isToday {
+            return themeManager?.colors.primary ?? LightThemeColors.primary
         } else {
-            return .secondary
+            return themeManager?.colors.onSurface ?? LightThemeColors.onSurface
         }
     }
     
     private var textWeight: Font.Weight {
-        if isToday {
-            return .bold
-        } else if day.colorHex != nil {
+        if day.hasWorkout || day.isToday {
             return .semibold
         } else {
             return .regular
         }
-    }
-    
-    var body: some View {
-        VStack(spacing: 4) {
-            // Day of week label
-            Text(dayFormatter.string(from: day.date).uppercased())
-                .font(.caption)
-                .foregroundColor(.secondary)
-            
-            // Day circle
-            ZStack {
-                Circle()
-                    .fill(fillColor)
-                    .overlay(
-                        Circle()
-                            .stroke(ringColor, lineWidth: 1.5)
-                    )
-                
-                Text(dayNumber)
-                    .font(.body)
-                    .fontWeight(textWeight)
-                    .foregroundColor(textColor)
-            }
-            .frame(width: 32, height: 32)
-        }
-        .padding(.horizontal, 4)
     }
 }

@@ -53,7 +53,7 @@ class AuthViewModel: ObservableObject {
         switch result {
         case .success:
             print("\(logger): 🗑️ Account deleted successfully")
-            userPreferences.clearPreferences()
+            await userPreferences.clearPreferences()
             authState = .initial
         case .failure(let error):
             print("\(logger): ❌ Account deletion failed: \(error)")
@@ -104,7 +104,7 @@ class AuthViewModel: ObservableObject {
             try await authRepository.signOut()
             
             print("\(logger): 🚪 Clearing user preferences...")
-            userPreferences.clearPreferences()
+            await userPreferences.clearPreferences()
             
             // Small delay to ensure cleanup is complete
             try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
@@ -126,7 +126,7 @@ class AuthViewModel: ObservableObject {
         do {
             print("\(logger): 🔇 Silent sign out for cleanup...")
             try await authRepository.signOut()
-            userPreferences.clearPreferences()
+            await userPreferences.clearPreferences()
             print("\(logger): 🔇 Silent sign out completed")
         } catch {
             print("\(logger): ❌ Error during silent sign out: \(error)")

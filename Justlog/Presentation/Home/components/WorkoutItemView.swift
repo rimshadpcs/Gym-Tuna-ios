@@ -9,101 +9,111 @@ import SwiftUI
 import Foundation
 
 struct WorkoutItemView: View {
+    @Environment(\.themeManager) private var themeManager
     let workout: Workout
     let onStartClick: () -> Void
     let onRoutineNameClick: () -> Void
-    let onDuplicate: () -> Void
-    let onEdit: () -> Void
-    let onDelete: () -> Void
+    let onEditClick: () -> Void
     
     @State private var showOptions = false
     @State private var isPressed = false
     
-    @Environment(\.colorScheme) private var colorScheme
-    
-    private var isLightTheme: Bool {
-        colorScheme == .light
-    }
-    
     var body: some View {
-        HStack {
-            // Left side - Workout info
-            VStack(alignment: .leading, spacing: MaterialSpacing.xs) {
-                HStack(spacing: MaterialSpacing.sm) {
-                    Text(workout.name)
-                        .font(MaterialTypography.subtitle1)
-                        .fontWeight(.medium)
-                        .foregroundColor(MaterialColors.onSurface)
-                    
-                    // Color dot (Material Design style)
-                    if let colorHex = workout.colorHex,
-                       let color = Color(hex: colorHex) {
+        HStack(spacing: 12) {
+            // Workout info - clickable area
+            Button(action: onRoutineNameClick) {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(workout.name)
+                            .vagFont(size: 15, weight: .medium)
+                            .foregroundColor(themeManager?.colors.onSurface ?? LightThemeColors.onSurface)
+                        
+                        // Small colored dot like in original
                         Circle()
-                            .fill(color)
-                            .frame(width: 12, height: 12)
-                            .materialElevation(1)
+                            .fill(workoutColor)
+                            .frame(width: 8, height: 8)
                     }
+                    
+                    Text("\(workout.exercises.count) exercise\(workout.exercises.count != 1 ? "s" : "")")
+                        .vagFont(size: 12, weight: .regular)
+                        .foregroundColor(themeManager?.colors.onSurface.opacity(0.5) ?? LightThemeColors.onSurface.opacity(0.5))
                 }
-                
-                Text("\(workout.exercises.count) exercises")
-                    .font(MaterialTypography.body2)
-                    .foregroundColor(MaterialColors.onSurface.opacity(0.7))
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .onTapGesture {
-                onRoutineNameClick()
-            }
+            .buttonStyle(.plain)
             
             Spacer()
             
-            // Right side - Actions
-            HStack(spacing: MaterialSpacing.sm) {
-                // Start Button (Material Primary)
+            // Action buttons - compact like original
+            HStack(spacing: 8) {
+                // Start Button 
                 Button(action: onStartClick) {
                     Text("Start")
-                        .font(MaterialTypography.button)
-                        .padding(.horizontal, MaterialSpacing.lg)
+                        .vagFont(size: 13, weight: .medium)
+                        .foregroundColor(isDarkTheme ? Color.black : Color.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(themeManager?.colors.primary ?? LightThemeColors.primary)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(
+                                            isDarkTheme ? Color.white : Color.black,
+                                            lineWidth: 1.5
+                                        )
+                                )
+                        )
                 }
-                .buttonStyle(.materialPrimary)
-                .scaleEffect(isPressed ? 0.98 : 1.0)
-                .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity) { isPressing in
-                    withAnimation(.easeInOut(duration: 0.08)) {
-                        isPressed = isPressing
-                    }
-                } perform: {}
+                .buttonStyle(.plain)
+
                 
-                // More options (Material Icon Button)
+                // Options button - three dots
                 Button(action: { showOptions = true }) {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(MaterialColors.onSurface.opacity(0.7))
-                        .frame(width: 32, height: 32)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(themeManager?.colors.onSurface.opacity(0.6) ?? LightThemeColors.onSurface.opacity(0.6))
+                        .frame(width: 24, height: 24)
                 }
-                .background(
-                    Circle()
-                        .fill(MaterialColors.surface)
-                        .materialElevation(1)
-                )
+                .buttonStyle(.plain)
             }
         }
-        .padding(MaterialSpacing.cardPadding)
-        .frame(minHeight: MaterialComponentTokens.ListItem.height)
-        .materialCard()
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: MaterialCornerRadius.card)
+                .fill(themeManager?.colors.surface ?? LightThemeColors.surface)
+                .overlay(
+                    RoundedRectangle(cornerRadius: MaterialCornerRadius.card)
+                        .stroke(
+                            isDarkTheme ? Color.white : Color.black,
+                            lineWidth: 1.5
+                        )
+                )
+        )
         .actionSheet(isPresented: $showOptions) {
             ActionSheet(
                 title: Text(workout.name),
                 buttons: [
-                    .default(Text("Duplicate")) {
-                        onDuplicate()
-                    },
                     .default(Text("Edit")) {
-                        onEdit()
-                    },
-                    .destructive(Text("Delete")) {
-                        onDelete()
+                        onEditClick()
                     },
                     .cancel()
                 ]
             )
+        }
+    }
+    
+    // MARK: - Computed Properties
+    private var isDarkTheme: Bool {
+        themeManager?.currentTheme == .dark
+    }
+    
+    private var workoutColor: Color {
+        if let colorHex = workout.colorHex {
+            return Color(hex: colorHex) ?? (themeManager?.colors.primary ?? LightThemeColors.primary)
+        } else {
+            return themeManager?.colors.primary ?? LightThemeColors.primary
         }
     }
 }
