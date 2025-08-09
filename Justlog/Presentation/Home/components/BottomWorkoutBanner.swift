@@ -52,6 +52,7 @@ struct BottomWorkoutBanner: View {
                 Text(formattedElapsedTime)
                     .vagFont(size: 12, weight: .regular)
                     .foregroundColor(themeManager?.colors.onSurface.opacity(0.7) ?? LightThemeColors.onSurface.opacity(0.7))
+                    .animation(nil, value: elapsedTime) // Disable animation for timer updates
             }
             
             Spacer()
@@ -76,12 +77,19 @@ struct BottomWorkoutBanner: View {
                         Text("Resume")
                             .vagFont(size: 13, weight: .medium)
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(isDarkTheme ? .white : (themeManager?.colors.onSurface ?? LightThemeColors.onSurface))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .background(
                         RoundedRectangle(cornerRadius: 6)
-                            .fill(.black)
+                            .fill(isDarkTheme ? .black : (themeManager?.colors.surface ?? LightThemeColors.surface))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(
+                                        isDarkTheme ? .white : Color.black,
+                                        lineWidth: 1.5
+                                    )
+                            )
                     )
                 }
                 .buttonStyle(.plain)
@@ -90,17 +98,22 @@ struct BottomWorkoutBanner: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(
-            Rectangle()
+            RoundedRectangle(cornerRadius: MaterialCornerRadius.card)
                 .fill(themeManager?.colors.surface ?? LightThemeColors.surface)
                 .overlay(
-                    Rectangle()
-                        .frame(height: 1)
-                        .foregroundColor(themeManager?.colors.outline ?? LightThemeColors.outline),
-                    alignment: .top
+                    RoundedRectangle(cornerRadius: MaterialCornerRadius.card)
+                        .stroke(
+                            isDarkTheme ? Color.white : Color.black,
+                            lineWidth: 1.5
+                        )
                 )
         )
+        .padding(.horizontal)
+        .padding(.bottom)
         .onAppear {
-            startTimer()
+            if timer == nil {
+                startTimer()
+            }
         }
         .onDisappear {
             stopTimer()
@@ -109,8 +122,11 @@ struct BottomWorkoutBanner: View {
     
     // MARK: - Timer Management
     private func startTimer() {
+        // Use a more efficient timer that doesn't cause UI flickering
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-            elapsedTime += 1
+            DispatchQueue.main.async {
+                elapsedTime += 1
+            }
         }
     }
     

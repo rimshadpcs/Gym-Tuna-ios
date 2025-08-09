@@ -27,6 +27,7 @@ class HomeViewModel: ObservableObject {
     private let workoutRepository: WorkoutRepository
     private let authRepository: AuthRepository
     private let workoutSessionManager: WorkoutSessionManager
+    private let workoutHistoryRepository: WorkoutHistoryRepository
     private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Computed Properties
@@ -70,11 +71,13 @@ class HomeViewModel: ObservableObject {
     init(
         workoutRepository: WorkoutRepository,
         authRepository: AuthRepository,
-        workoutSessionManager: WorkoutSessionManager
+        workoutSessionManager: WorkoutSessionManager,
+        workoutHistoryRepository: WorkoutHistoryRepository
     ) {
         self.workoutRepository = workoutRepository
         self.authRepository = authRepository
         self.workoutSessionManager = workoutSessionManager
+        self.workoutHistoryRepository = workoutHistoryRepository
         
         setupWeekDates()
         
@@ -82,24 +85,42 @@ class HomeViewModel: ObservableObject {
             await loadInitialData()
         }
         
+        // Listen for workout completion to refresh calendar
+        NotificationCenter.default.addObserver(forName: NSNotification.Name("WorkoutCompleted"), object: nil, queue: .main) { _ in
+            self.refreshWeeklyCalendar()
+        }
+        
+        // Check current workout session state immediately
+        if let currentState = workoutSessionManager.getWorkoutState() {
+            let workoutId = currentState.routineId ?? "quick_workout"
+            activeWorkout = Workout(
+                id: workoutId,
+                name: currentState.routineName,
+                userId: "",
+                exercises: [],
+                createdAt: Date(),
+                colorHex: nil
+            )
+        }
+        
         // Listen to workout session changes
         workoutSessionManager.$workoutState
             .receive(on: DispatchQueue.main)
             .sink { [weak self] sessionState in
-                // For now, create a mock workout based on session state
+                guard let self = self else { return }
+                
                 if let state = sessionState {
-                    // Create a temporary workout object from session state
-                    let workout = Workout(
-                        id: state.routineId ?? UUID().uuidString,
+                    let workoutId = state.routineId ?? "quick_workout"
+                    self.activeWorkout = Workout(
+                        id: workoutId,
                         name: state.routineName,
                         userId: "",
                         exercises: [],
                         createdAt: Date(),
                         colorHex: nil
                     )
-                    self?.activeWorkout = workout
                 } else {
-                    self?.activeWorkout = nil
+                    self.activeWorkout = nil
                 }
             }
             .store(in: &cancellables)
@@ -140,18 +161,11 @@ class HomeViewModel: ObservableObject {
             return
         }
         
-        // Convert Exercise objects to WorkoutExercise objects
-        let workoutExercises = workout.exercises.map { exercise in
-            WorkoutExercise(
-                exercise: exercise,
-                sets: [] // Empty sets - will be populated during workout
-            )
-        }
-        
+        // workout.exercises is already [WorkoutExercise]
         workoutSessionManager.startWorkout(
             routineId: workout.id,
             routineName: workout.name,
-            exercises: workoutExercises
+            exercises: workout.exercises
         )
     }
     
@@ -233,10 +247,67 @@ class HomeViewModel: ObservableObject {
     }
     
     private func setupWeekDates() {
+        Task {
+            await loadWeekDatesWithWorkoutData()
+        }
+    }
+    
+    private func loadWeekDatesWithWorkoutData() async {
         let calendar = Calendar.current
         let today = Date()
         
-        weekDates = (0..<7).compactMap { dayOffset in
+        // Get current user ID
+        guard let userId = await authRepository.getCurrentUser()?.id else {
+            // Fallback to basic week dates without workout data
+            await MainActor.run {
+                weekDates = createBasicWeekDates(calendar: calendar, today: today)
+            }
+            return
+        }
+        
+        // Load workout history for this user
+        let weekStart = calendar.dateInterval(of: .weekOfYear, for: today)?.start ?? today
+        let weekEnd = calendar.date(byAdding: .day, value: 6, to: weekStart) ?? today
+        
+        do {
+            let workoutHistory = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[WorkoutHistory], Error>) in
+                let cancellable = workoutHistoryRepository.getWorkoutHistory(userId: userId)
+                    .sink(
+                        receiveCompletion: { completion in
+                            if case .failure(let error) = completion {
+                                continuation.resume(throwing: error)
+                            }
+                        },
+                        receiveValue: { history in
+                            // Filter to only include workouts from this week
+                            let weekWorkouts = history.filter { workout in
+                                workout.endTime >= weekStart && workout.endTime <= weekEnd
+                            }
+                            continuation.resume(returning: weekWorkouts)
+                        }
+                    )
+                
+                // Store cancellable to prevent it from being deallocated
+                self.cancellables.insert(cancellable)
+            }
+            
+            await MainActor.run {
+                weekDates = createWeekDatesWithWorkoutData(
+                    calendar: calendar,
+                    today: today,
+                    workoutHistory: workoutHistory
+                )
+            }
+        } catch {
+            print("Failed to load workout history for weekly calendar: \(error)")
+            await MainActor.run {
+                weekDates = createBasicWeekDates(calendar: calendar, today: today)
+            }
+        }
+    }
+    
+    private func createBasicWeekDates(calendar: Calendar, today: Date) -> [WeeklyCalendarDay] {
+        return (-6...0).compactMap { dayOffset in
             guard let date = calendar.date(byAdding: .day, value: dayOffset, to: today) else { return nil }
             
             let dayFormatter = DateFormatter()
@@ -253,8 +324,54 @@ class HomeViewModel: ObservableObject {
                 dayNumber: dayNumber,
                 isToday: isToday,
                 isSelected: isSelected,
-                hasWorkout: false // TODO: Implement workout scheduling
+                hasWorkout: false,
+                routineId: nil,
+                isCompleted: false,
+                colorHex: nil
             )
+        }
+    }
+    
+    private func createWeekDatesWithWorkoutData(
+        calendar: Calendar,
+        today: Date,
+        workoutHistory: [WorkoutHistory]
+    ) -> [WeeklyCalendarDay] {
+        return (-6...0).compactMap { dayOffset in
+            guard let date = calendar.date(byAdding: .day, value: dayOffset, to: today) else { return nil }
+            
+            let dayFormatter = DateFormatter()
+            dayFormatter.dateFormat = "E"
+            let dayName = dayFormatter.string(from: date)
+            
+            let dayNumber = calendar.component(.day, from: date)
+            let isToday = calendar.isDate(date, inSameDayAs: today)
+            let isSelected = calendar.isDate(date, inSameDayAs: selectedDate)
+            
+            // Find workout for this day
+            let dayWorkout = workoutHistory.first { workout in
+                calendar.isDate(workout.endTime, inSameDayAs: date)
+            }
+            
+            return WeeklyCalendarDay(
+                date: date,
+                dayName: dayName,
+                dayNumber: dayNumber,
+                isToday: isToday,
+                isSelected: isSelected,
+                hasWorkout: dayWorkout != nil,
+                routineId: dayWorkout?.routineId,
+                isCompleted: dayWorkout != nil,
+                colorHex: dayWorkout?.colorHex
+            )
+        }
+    }
+    
+    // MARK: - Public Methods
+    
+    func refreshWeeklyCalendar() {
+        Task {
+            await loadWeekDatesWithWorkoutData()
         }
     }
 }

@@ -111,7 +111,7 @@ func buildDisplayString(
     weight: Double? = nil,
     reps: Int? = nil,
     distance: Double? = nil,
-    time: Int? = nil,
+    time: Double? = nil, // Changed to Double?
     weightUnit: WeightUnit,
     distanceUnit: DistanceUnit,
     showUnits: Bool = false
@@ -130,7 +130,7 @@ func buildDisplayString(
     }
     
     if let time = time, time > 0 {
-        parts.append(showUnits ? "\(time)s" : String(time))
+        parts.append(showUnits ? "\(DistanceConverter.formatTime(Int(time)))s" : DistanceConverter.formatTime(Int(time)))
     }
     
     if let reps = reps, reps > 0 && (time == nil || time == 0) {
@@ -180,4 +180,23 @@ class DistanceConverter {
     static func milesToKm(_ miles: Double) -> Double {
         return miles / 0.621371
     }
+    
+    static func formatTime(_ seconds: Int) -> String {
+        let minutes = seconds / 60
+        let remainingSeconds = seconds % 60
+        
+        if minutes > 0 {
+            return "\(minutes):\(String(format: "%02d", remainingSeconds))"
+        } else {
+            return "\(remainingSeconds)s"
+        }
+    }
+}
+
+// Exercise Colors matching Android design
+struct ExerciseColors {
+    static let supersetColor = Color(red: 0.29, green: 0.53, blue: 0.96) // Blue
+    static let dropsetColor = Color(red: 1.0, green: 0.8, blue: 0.0) // Yellow/Orange
+    static let completedSetColor = Color(red: 1.0, green: 0.65, blue: 0.0) // Orange
+    static let completedSetColorDark = Color(red: 1.0, green: 0.647, blue: 0.0).opacity(0.8) // Darker orange
 }

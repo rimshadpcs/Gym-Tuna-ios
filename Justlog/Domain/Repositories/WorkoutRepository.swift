@@ -47,6 +47,7 @@ protocol WorkoutRepository {
 // MARK: - Repository Error Types
 enum RepositoryError: LocalizedError {
     case userNotAuthenticated
+    case unauthorized(String)
     case networkError(String)
     case dataCorruption
     case documentNotFound
@@ -56,6 +57,8 @@ enum RepositoryError: LocalizedError {
         switch self {
         case .userNotAuthenticated:
             return "User not authenticated"
+        case .unauthorized(let message):
+            return "Unauthorized: \(message)"
         case .networkError(let message):
             return "Network error: \(message)"
         case .dataCorruption:

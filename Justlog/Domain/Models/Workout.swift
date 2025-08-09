@@ -11,7 +11,7 @@ struct Workout: Identifiable, Codable, Equatable {
     let id: String
     let name: String
     let userId: String
-    let exercises: [Exercise]
+    let exercises: [WorkoutExercise]
     let createdAt: Date
     let colorHex: String?
     let lastPerformed: Date?
@@ -20,7 +20,7 @@ struct Workout: Identifiable, Codable, Equatable {
         id: String = UUID().uuidString,
         name: String,
         userId: String,
-        exercises: [Exercise] = [],
+        exercises: [WorkoutExercise] = [],
         createdAt: Date = Date(),
         colorHex: String? = nil,
         lastPerformed: Date? = nil

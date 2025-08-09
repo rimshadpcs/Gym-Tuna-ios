@@ -149,11 +149,12 @@ struct HomeScreen: View {
                         onResumeClick: { onNavigateToWorkout(activeWorkout.id, activeWorkout.name) },
                         onDiscardClick: viewModel.endActiveWorkout
                     )
+                    .id(activeWorkout.id) // Add ID to prevent unnecessary redraws
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
-                .animation(.easeInOut(duration: 0.3), value: viewModel.activeWorkout != nil)
             }
         }
+        .animation(.easeInOut(duration: 0.3), value: viewModel.activeWorkout?.id)
         .alert("Workout Conflict", isPresented: $viewModel.showConflictDialog) {
             Button("Resume Current") {
                 viewModel.resolveConflict(replaceActive: false)

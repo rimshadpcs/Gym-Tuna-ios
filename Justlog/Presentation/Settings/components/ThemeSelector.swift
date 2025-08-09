@@ -21,7 +21,7 @@ struct ThemeSelector: View {
                 ThemeButton(
                     theme: .neutral,
                     title: "Neutral",
-                    backgroundColor: Color(UIColor.systemGray5),
+                    backgroundColor: ThemeColors.neutralColor,
                     contentColor: .black,
                     isSelected: currentTheme == .neutral,
                     onTap: { onThemeSelected(.neutral) }

@@ -86,7 +86,16 @@ struct CompactWorkoutStatsCard: View {
             }
             .padding(12)
         }
-        .materialCard()
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(themeManager?.colors.surface ?? Color(.systemBackground))
+                .shadow(
+                    color: Color.black.opacity(0.1),
+                    radius: 4,
+                    x: 0,
+                    y: 2
+                )
+        )
         .overlay(
             RoundedRectangle(cornerRadius: MaterialCornerRadius.large)
                 .stroke(
@@ -149,7 +158,16 @@ struct UltraCompactWorkoutStatsCard: View {
             Spacer()
         }
         .padding(8)
-        .materialCard()
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(themeManager?.colors.surface ?? Color(.systemBackground))
+                .shadow(
+                    color: Color.black.opacity(0.1),
+                    radius: 4,
+                    x: 0,
+                    y: 2
+                )
+        )
         .overlay(
             RoundedRectangle(cornerRadius: MaterialCornerRadius.small)
                 .stroke(

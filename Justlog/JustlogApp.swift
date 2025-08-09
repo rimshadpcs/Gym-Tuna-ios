@@ -21,10 +21,19 @@ struct JustLogApp: App {  // ← This matches your project name "JustLog"
     // Register app delegate for Firebase setup
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     
+    @StateObject private var themeManager: ThemeManager
+    @StateObject private var userPreferences = UserPreferences.shared
+    
+    init() {
+        _themeManager = StateObject(wrappedValue: ThemeManager(userPreferences: UserPreferences.shared))
+    }
+    
     var body: some Scene {
         WindowGroup {
             NavigationView {
                 ContentView()
+                    .environment(\.themeManager, themeManager)
+                    .environmentObject(userPreferences)
             }
         }
     }

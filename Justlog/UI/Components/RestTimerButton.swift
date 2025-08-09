@@ -64,7 +64,7 @@ struct RestTimerButton: View {
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 16, height: 16)
                 
-                Text("Start Rest Timer")
+                Text("Rest Timer")
                     .vagFont(size: 14, weight: .medium)
             }
             .foregroundColor(themeManager?.colors.primary ?? LightThemeColors.primary)
@@ -218,55 +218,7 @@ struct RestTimerSelectionSheet: View {
                 }
                 .padding(.horizontal, 20)
                 
-                // Custom time section
-                VStack(spacing: 12) {
-                    Button(action: {
-                        showCustomInput.toggle()
-                    }) {
-                        HStack {
-                            Text("Custom Time")
-                                .vagFont(size: 16, weight: .medium)
-                                .foregroundColor(themeManager?.colors.onSurface ?? LightThemeColors.onSurface)
-                            
-                            Spacer()
-                            
-                            Image(systemName: showCustomInput ? "chevron.down" : "chevron.right")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(themeManager?.colors.onSurface ?? LightThemeColors.onSurface)
-                        }
-                        .padding(.horizontal, 20)
-                    }
-                    
-                    if showCustomInput {
-                        VStack(spacing: 12) {
-                            HStack {
-                                Text("Minutes:")
-                                    .vagFont(size: 14, weight: .medium)
-                                
-                                Stepper(value: $customTime, in: 30...600, step: 30) {
-                                    Text(formatTime(customTime))
-                                        .vagFont(size: 16, weight: .semibold)
-                                        .frame(minWidth: 80)
-                                }
-                            }
-                            .padding(.horizontal, 20)
-                            
-                            Button("Start \(formatTime(customTime))") {
-                                onTimeSelected(customTime)
-                            }
-                            .vagFont(size: 16, weight: .semibold)
-                            .foregroundColor(.white)
-                            .padding(.vertical, 12)
-                            .frame(maxWidth: .infinity)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(themeManager?.colors.primary ?? LightThemeColors.primary)
-                            )
-                            .padding(.horizontal, 20)
-                        }
-                        .transition(.opacity.combined(with: .scale))
-                    }
-                }
+                
                 
                 Spacer()
             }

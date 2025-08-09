@@ -20,6 +20,8 @@ class WorkoutSessionManager: ObservableObject {
     @Published private(set) var currentExercise: String? = nil
     @Published private(set) var isActive: Bool = false
     @Published private(set) var workoutState: WorkoutSessionState? = nil
+    @Published private(set) var isRoutineWorkout: Bool = false
+    @Published private(set) var isQuickWorkout: Bool = false
     
     // MARK: - Private Properties
     private let userDefaults = UserDefaults.standard
@@ -47,7 +49,8 @@ class WorkoutSessionManager: ObservableObject {
     // MARK: - Public Methods
     
     func startWorkout(routineId: String?, routineName: String, exercises: [WorkoutExercise]) {
-        print("🏋️ Starting workout session: \(routineName)")
+        let workoutType = routineId != nil ? "routine" : "quick"
+        print("🏋️ Starting \(workoutType) workout session: \(routineName)")
         
         let currentTime = Date()
         
@@ -68,12 +71,24 @@ class WorkoutSessionManager: ObservableObject {
         
         workoutState = sessionState
         isActive = true
+        isRoutineWorkout = routineId != nil
+        isQuickWorkout = routineId == nil
         currentExercise = exercises.first?.exercise.name
         
         saveSession(sessionState)
         startTimer()
         
-        print("🏋️ Workout started: \(sessionState.routineName) with \(exercises.count) exercises")
+        print("🏋️ \(workoutType.capitalized) workout started: \(sessionState.routineName) with \(exercises.count) exercises")
+    }
+    
+    func startRoutineWorkout(routineId: String, routineName: String, exercises: [WorkoutExercise]) {
+        print("🏋️ Starting routine workout: \(routineName) (ID: \(routineId))")
+        startWorkout(routineId: routineId, routineName: routineName, exercises: exercises)
+    }
+    
+    func startQuickWorkout(workoutName: String, exercises: [WorkoutExercise] = []) {
+        print("🏋️ Starting quick workout: \(workoutName)")
+        startWorkout(routineId: nil, routineName: workoutName, exercises: exercises)
     }
     
     func resumeWorkout() {
@@ -182,7 +197,10 @@ class WorkoutSessionManager: ObservableObject {
     }
     
     func updateSession(routineId: String?, routineName: String, exercises: [WorkoutExercise]) {
-        guard let currentState = workoutState else { return }
+        guard let currentState = workoutState else { 
+            print("⚠️ Cannot update session - no active workout state")
+            return 
+        }
         
         let updatedState = WorkoutSessionState(
             routineId: routineId,
@@ -196,9 +214,13 @@ class WorkoutSessionManager: ObservableObject {
         )
         
         workoutState = updatedState
+        isRoutineWorkout = routineId != nil
+        isQuickWorkout = routineId == nil
+        
         saveSession(updatedState)
         
-        print("🔄 Session updated with:")
+        let workoutType = routineId != nil ? "routine" : "quick"
+        print("🔄 \(workoutType.capitalized) session updated:")
         print("   - routineId: \(routineId ?? "nil")")
         print("   - routineName: \(routineName)")
         print("   - exercises: \(exercises.count)")
@@ -224,14 +246,29 @@ class WorkoutSessionManager: ObservableObject {
     
     func getWorkoutState() -> WorkoutSessionState? {
         let state = workoutState
-        print("🔍 getWorkoutState() called, returning: \(state?.routineName ?? "nil")")
+        let workoutType = state?.routineId != nil ? "routine" : "quick"
+        print("🔍 getWorkoutState() called, returning: \(state?.routineName ?? "nil") (\(workoutType))")
         return state
     }
     
     func hasActiveWorkout() -> Bool {
         let hasWorkout = workoutState != nil
-        print("🔍 hasActiveWorkout() called, returning: \(hasWorkout)")
+        let workoutType = hasWorkout ? (workoutState?.routineId != nil ? "routine" : "quick") : "none"
+        print("🔍 hasActiveWorkout() called, returning: \(hasWorkout) (type: \(workoutType))")
         return hasWorkout
+    }
+    
+    func getWorkoutType() -> String? {
+        guard let state = workoutState else { return nil }
+        return state.routineId != nil ? "routine" : "quick"
+    }
+    
+    func isCurrentlyRoutineWorkout() -> Bool {
+        return isRoutineWorkout
+    }
+    
+    func isCurrentlyQuickWorkout() -> Bool {
+        return isQuickWorkout
     }
     
     // MARK: - Private Methods
@@ -319,6 +356,8 @@ class WorkoutSessionManager: ObservableObject {
             
             let state = try JSONDecoder().decode(WorkoutSessionState.self, from: data)
             
+            let workoutType = state.routineId != nil ? "routine" : "quick"
+            print("   - restored \(workoutType) workout")
             print("   - restored routineId: \(state.routineId ?? "nil")")
             print("   - restored routineName: \(state.routineName)")
             print("   - restored exercises: \(state.exercises.count)")
@@ -335,6 +374,8 @@ class WorkoutSessionManager: ObservableObject {
             
             workoutState = state
             isActive = wasActive
+            isRoutineWorkout = state.routineId != nil
+            isQuickWorkout = state.routineId == nil
             currentExercise = state.currentExercise
             
             // Calculate current duration
@@ -375,6 +416,8 @@ class WorkoutSessionManager: ObservableObject {
         
         workoutState = nil
         isActive = false
+        isRoutineWorkout = false
+        isQuickWorkout = false
         currentExercise = nil
         workoutDuration = "0s"
         

@@ -15,11 +15,11 @@ struct WeeklyCalendarStrip: View {
     let onDateSelected: (Date) -> Void
     let onHistoryClick: () -> Void
     
-    private var isDarkTheme: Bool {
+    private var isLightTheme: Bool {
         switch themeManager?.currentTheme {
-        case .dark:
+        case .light, .neutral:
             return true
-        case .neutral, .light, .none:
+        case .dark, .none:
             return false
         }
     }
@@ -38,7 +38,7 @@ struct WeeklyCalendarStrip: View {
                     HStack(spacing: 4) {
                         Text("History")
                             .vagFont(size: 12, weight: .medium)
-                        Image(isDarkTheme ? "history_dark" : "history")
+                        Image(isLightTheme ? "history" : "history_dark")
                             .resizable()
                             .aspectRatio(contentMode: .fit)
                             .frame(width: 14, height: 14)
@@ -81,79 +81,116 @@ struct DayColumn: View {
     let isSelected: Bool
     let onDateSelected: (Date) -> Void
     
+    private var isLightTheme: Bool {
+        switch themeManager?.currentTheme {
+        case .light, .neutral:
+            return true
+        case .dark, .none:
+            return false
+        }
+    }
+    
     var body: some View {
         Button(action: { onDateSelected(day.date) }) {
-            VStack(spacing: 5) {
-                // Day of week label - more compact
-                Text(day.dayName.uppercased())
-                    .vagFont(size: 10, weight: .medium)
-                    .foregroundColor(themeManager?.colors.onSurface.opacity(0.6) ?? LightThemeColors.onSurface.opacity(0.6))
+            VStack(spacing: 4) {
+                // Day of week label
+                Text(day.dayName.prefix(3).uppercased())
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundColor(secondaryContentColor)
                 
-                // Day circle - smaller
+                // Day circle
                 ZStack {
                     Circle()
                         .fill(fillColor)
                         .overlay(
                             Circle()
-                                .stroke(strokeColor, lineWidth: strokeWidth)
+                                .stroke(ringColor, lineWidth: strokeWidth)
                         )
                     
                     Text("\(day.dayNumber)")
-                        .vagFont(size: 14, weight: textWeight)
+                        .font(.system(size: 14, weight: textWeight))
                         .foregroundColor(textColor)
                 }
-                .frame(width: 30, height: 30)
+                .frame(width: 32, height: 32)
             }
         }
         .buttonStyle(.plain)
+        .padding(.horizontal, 4)
     }
     
-    // MARK: - Computed Properties
-    private var fillColor: Color {
-        if day.hasWorkout {
-            return themeManager?.colors.primary.opacity(0.2) ?? LightThemeColors.primary.opacity(0.2)
-        } else if day.isToday {
-            return themeManager?.colors.primary.opacity(0.1) ?? LightThemeColors.primary.opacity(0.1)
-        } else if isSelected {
-            return themeManager?.colors.primary.opacity(0.15) ?? LightThemeColors.primary.opacity(0.15)
+    // MARK: - Computed Properties (matching Android logic exactly)
+    
+    private var contentColor: Color {
+        return themeManager?.colors.onBackground ?? (isLightTheme ? Color.black : Color.white)
+    }
+    
+    private var secondaryContentColor: Color {
+        return contentColor.opacity(0.6)
+    }
+    
+    // Ring color based on day's colorHex or theme
+    private var ringColor: Color {
+        if let colorHex = day.colorHex {
+            // Parse hex color
+            return Color(hex: colorHex) ?? (isLightTheme ? Color.gray : Color(.lightGray))
         } else {
-            return Color.clear
+            return isLightTheme ? Color.gray : Color(.lightGray)
         }
     }
     
-    private var strokeColor: Color {
-        if day.hasWorkout {
-            return themeManager?.colors.primary ?? LightThemeColors.primary
+    // Today highlight color
+    private var todayHighlightColor: Color {
+        if isLightTheme {
+            return Color.gray.opacity(0.10)
+        } else {
+            return Color.white.opacity(0.20)
+        }
+    }
+    
+    // Fill color based on completion status, today status, and theme
+    private var fillColor: Color {
+        if let _ = day.colorHex {
+            // For days with custom colors, adjust opacity based on theme
+            if isLightTheme {
+                return ringColor.opacity(0.35)
+            } else {
+                return ringColor.opacity(0.45)
+            }
         } else if day.isToday {
-            return themeManager?.colors.primary.opacity(0.5) ?? LightThemeColors.primary.opacity(0.5)
-        } else if isSelected {
-            return themeManager?.colors.primary.opacity(0.7) ?? LightThemeColors.primary.opacity(0.7)
+            return todayHighlightColor
         } else {
             return Color.clear
         }
     }
     
     private var strokeWidth: CGFloat {
-        if day.hasWorkout || day.isToday || isSelected {
-            return 2
+        if day.isCompleted {
+            return isLightTheme ? 1.5 : 1.5
         } else {
-            return 0
+            return 1.5
         }
     }
     
+    // Text color logic based on status and theme
     private var textColor: Color {
-        if day.hasWorkout || day.isToday {
-            return themeManager?.colors.primary ?? LightThemeColors.primary
+        if day.isToday {
+            return contentColor // Today's text uses primary content color
+        } else if day.colorHex != nil {
+            // For days with color, adapt text color based on theme
+            return isLightTheme ? Color.black : Color.white
         } else {
-            return themeManager?.colors.onSurface ?? LightThemeColors.onSurface
+            return secondaryContentColor // Other days use secondary content color
         }
     }
     
     private var textWeight: Font.Weight {
-        if day.hasWorkout || day.isToday {
+        if day.isToday {
+            return .bold
+        } else if day.colorHex != nil {
             return .semibold
         } else {
             return .regular
         }
     }
 }
+

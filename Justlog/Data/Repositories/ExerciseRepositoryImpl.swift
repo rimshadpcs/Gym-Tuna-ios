@@ -27,14 +27,15 @@ class ExerciseRepositoryImpl: ExerciseRepository {
         logger.info("🏋️‍♂️ ExerciseRepositoryImpl initialized")
     }
     
+    
     // MARK: - Repository Implementation
     
     func getAllExercises() -> AnyPublisher<[Exercise], Error> {
         let isCacheValid = Date().timeIntervalSince(lastCacheUpdate) < cacheValidityDuration
         
         if isCacheValid && !exerciseCache.isEmpty {
-            logger.info("⚡ Using cached exercises (\(exerciseCache.count) exercises)")
-            return Just(exerciseCache)
+            logger.info("⚡ Using cached exercises (\(self.exerciseCache.count) exercises)")
+            return Just(self.exerciseCache)
                 .setFailureType(to: Error.self)
                 .eraseToAnyPublisher()
         } else {

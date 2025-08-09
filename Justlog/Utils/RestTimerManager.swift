@@ -81,6 +81,7 @@ class RestTimerManager: ObservableObject {
     func stopTimer() {
         timer?.invalidate()
         timer = nil
+        timerState = .inactive
     }
     
     func pauseResumeTimer() {

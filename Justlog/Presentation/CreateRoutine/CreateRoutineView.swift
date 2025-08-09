@@ -29,24 +29,34 @@ struct CreateRoutineView: View {
         authRepository: AuthRepository,
         subscriptionRepository: SubscriptionRepository,
         routineId: String? = nil,
+        existingViewModel: CreateRoutineViewModel? = nil,
         onBack: @escaping () -> Void,
         onRoutineCreated: @escaping () -> Void,
         onAddExercise: @escaping () -> Void,
         onNavigateToSubscription: @escaping () -> Void
     ) {
         self.routineId = routineId
-        let viewModel = CreateRoutineViewModel(
-            workoutRepository: workoutRepository,
-            authRepository: authRepository,
-            subscriptionRepository: subscriptionRepository,
-            routineId: routineId
-        )
-        self._viewModel = StateObject(wrappedValue: viewModel)
+        
+        // IMPORTANT: Always use existing ViewModel if provided to avoid creating duplicates
+        if let existing = existingViewModel {
+            print("🔄 CreateRoutineView: Using existing ViewModel: \(Unmanaged.passUnretained(existing).toOpaque())")
+            print("🔄 CreateRoutineView: Existing ViewModel has name: '\(existing.routineName)', exercises: \(existing.selectedExercises.count)")
+            self._viewModel = StateObject(wrappedValue: existing)
+        } else {
+            print("✨ CreateRoutineView: Creating new ViewModel for routineId: \(routineId ?? "new") - THIS SHOULD RARELY HAPPEN")
+            let viewModel = CreateRoutineViewModel(
+                workoutRepository: workoutRepository,
+                authRepository: authRepository,
+                subscriptionRepository: subscriptionRepository,
+                routineId: routineId
+            )
+            self._viewModel = StateObject(wrappedValue: viewModel)
+        }
+        
         self.onBack = onBack
         self.onRoutineCreated = onRoutineCreated
         self.onAddExercise = onAddExercise
         self.onNavigateToSubscription = onNavigateToSubscription
-        
     }
     
     var body: some View {
@@ -54,26 +64,34 @@ struct CreateRoutineView: View {
             MaterialColors.background
                 .ignoresSafeArea()
                 .onAppear {
-                    print("🏗️ CreateRoutineView: View appeared. Current exercises: \(viewModel.selectedExercises.count)")
-                    print("🏗️ CreateRoutineView: Exercise details: \(viewModel.selectedExercises.map { $0.name })")
-                    
-                    // Check for pending exercises from ExerciseChannel (similar to Kotlin LaunchedEffect)
-                    if ExerciseChannel.shared.hasPendingExercise() {
-                        if let exercise = ExerciseChannel.shared.consumeExercise() {
-                            print("🎯 CreateRoutineView: Consuming pending exercise: \(exercise.name)")
-                            viewModel.addExercise(exercise)
-                            
-                            // Show visual feedback
-                            addedExerciseName = exercise.name
-                            showExerciseAddedFeedback = true
-                            
-                            // Hide feedback after 2 seconds
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                                showExerciseAddedFeedback = false
-                            }
+                    print("🏗️ CreateRoutineView: View onAppear called")
+                    print("🏗️ ViewModel instance: \(Unmanaged.passUnretained(viewModel).toOpaque())")
+                    print("🏗️ Current routineName: '\(viewModel.routineName)'")
+                    print("🏗️ Current exercises count: \(viewModel.selectedExercises.count)")
+                    print("🏗️ Exercise details: \(viewModel.selectedExercises.map { $0.name })")
+                    // Check for pending exercises when view appears (e.g., returning from exercise selection)
+                    viewModel.onAppear()
+                }
+                .onChange(of: viewModel.lastAddedExercise) { exercise in
+                    // Show feedback when a new exercise is added
+                    print("🔄 onChange lastAddedExercise triggered: \(exercise?.name ?? "nil")")
+                    if let exercise = exercise {
+                        print("🔄 Showing feedback for: \(exercise.name)")
+                        addedExerciseName = exercise.name
+                        showExerciseAddedFeedback = true
+                        
+                        // Hide feedback after 2 seconds
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                            showExerciseAddedFeedback = false
                         }
                     }
-                    
+                }
+                .onChange(of: viewModel.selectedExercises) { exercises in
+                    print("🔄 onChange selectedExercises triggered: \(exercises.count) exercises")
+                    print("🔄 Exercise names: \(exercises.map { $0.name })")
+                }
+                .onChange(of: viewModel.routineName) { name in
+                    print("🔄 onChange routineName triggered: '\(name)' (instance: \(Unmanaged.passUnretained(viewModel).toOpaque()))")
                 }
             
             VStack(spacing: 0) {
@@ -130,11 +148,11 @@ struct CreateRoutineView: View {
                 .zIndex(1)
             }
         }
-        .sheet(isPresented: $viewModel.showUpgradeDialog) {
+        .sheet(isPresented: $viewModel.showPremiumBenefits) {
             PremiumUpgradeDialog(
-                onDismiss: { viewModel.hideUpgradeDialog() },
+                onDismiss: { viewModel.hidePremiumBenefits() },
                 onUpgrade: {
-                    viewModel.hideUpgradeDialog()
+                    viewModel.hidePremiumBenefits()
                     onNavigateToSubscription()
                 },
                 title: "Ready for More Routines?",
@@ -196,6 +214,9 @@ struct CreateRoutineView: View {
             TextField("Routine title", text: $viewModel.routineName)
                 .font(MaterialTypography.body1)
                 .foregroundColor(MaterialColors.onSurface)
+                .onChange(of: viewModel.routineName) { newValue in
+                    print("🏷️ TextField onChange: '\(newValue)'")
+                }
                 .padding(MaterialSpacing.lg)
                 .background(
                     RoundedRectangle(cornerRadius: MaterialCornerRadius.medium)

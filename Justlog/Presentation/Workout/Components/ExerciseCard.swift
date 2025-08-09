@@ -170,11 +170,13 @@ struct ExerciseCard: View {
             let historicalBest = calculateHistoricalBest()
             
             ForEach(Array(workoutExercise.sets.enumerated()), id: \.offset) { setIndex, set in
+                // Only show PR trophy if this is the best completed set in session AND it beats historical record
                 let isSessionBestPR = bestSetInSession?.setNumber == set.setNumber &&
                                      set.isCompleted &&
-                                     isNewPersonalRecord(set: set, historicalBest: historicalBest)
+                                     bestSetInSession != nil &&
+                                     isNewPersonalRecord(set: bestSetInSession!, historicalBest: historicalBest)
                 
-                let _ = print("🏆 PR Check for \(workoutExercise.exercise.name) set \(set.setNumber): bestInSession=\(bestSetInSession?.setNumber ?? -1), completed=\(set.isCompleted), historicalBest=\(historicalBest), isPR=\(isSessionBestPR)")
+                let _ = print("🏆 PR Check for \(workoutExercise.exercise.name) set \(set.setNumber): bestInSession=\(bestSetInSession?.setNumber ?? -1), completed=\(set.isCompleted), currentScore=\(calculateSetScore(set: set)), historicalBest=\(historicalBest), isPR=\(isSessionBestPR)")
                 
                 createSetRow(for: set, at: setIndex, isSessionBestPR: isSessionBestPR)
                     .padding(.horizontal, 0)
@@ -511,20 +513,33 @@ struct ExerciseCard: View {
     }
     
     private func calculateHistoricalBest() -> Double {
-        guard let firstSet = workoutExercise.sets.first else { return 0.0 }
+        guard !workoutExercise.sets.isEmpty else { return 0.0 }
         
-        switch true {
-        case workoutExercise.exercise.usesWeight:
-            let prevWeight = firstSet.previousWeight ?? 0.0
-            let prevReps = firstSet.previousReps ?? 0
-            return prevWeight > 0 && prevReps > 0 ? prevWeight * Double(prevReps) : 0.0
-        case workoutExercise.exercise.tracksDistance:
-            return firstSet.previousDistance ?? 0.0
-        case workoutExercise.exercise.isTimeBased:
-            return Double(firstSet.previousTime ?? 0)
-        default:
-            return Double(firstSet.previousReps ?? 0)
+        var historicalBest: Double = 0.0
+        
+        // Find the best historical performance across all sets
+        for set in workoutExercise.sets {
+            let historicalScore: Double
+            
+            switch true {
+            case workoutExercise.exercise.usesWeight:
+                let prevWeight = set.previousWeight ?? 0.0
+                let prevReps = set.previousReps ?? 0
+                historicalScore = prevWeight > 0 && prevReps > 0 ? prevWeight * Double(prevReps) : 0.0
+            case workoutExercise.exercise.tracksDistance:
+                historicalScore = set.previousDistance ?? 0.0
+            case workoutExercise.exercise.isTimeBased:
+                historicalScore = Double(set.previousTime ?? 0)
+            default:
+                historicalScore = Double(set.previousReps ?? 0)
+            }
+            
+            if historicalScore > historicalBest {
+                historicalBest = historicalScore
+            }
         }
+        
+        return historicalBest
     }
     
     private func hasValidData(set: ExerciseSet) -> Bool {
@@ -555,6 +570,7 @@ struct ExerciseCard: View {
     
     private func isNewPersonalRecord(set: ExerciseSet, historicalBest: Double) -> Bool {
         let currentScore = calculateSetScore(set: set)
-        return currentScore > historicalBest && historicalBest > 0
+        // PR if current score beats historical best (even if historical best is 0, first completion is a PR)
+        return currentScore > historicalBest && currentScore > 0
     }
 }

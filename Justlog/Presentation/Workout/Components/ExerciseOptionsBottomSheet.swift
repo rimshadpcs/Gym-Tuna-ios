@@ -146,8 +146,3 @@ struct ExerciseOptionsBottomSheet: View {
     }
 }
 
-// Helper colors
-struct ExerciseColors {
-    static let supersetColor = Color(red: 0.29, green: 0.53, blue: 0.96) // Blue
-    static let dropsetColor = Color(red: 1.0, green: 0.8, blue: 0.0) // Yellow/Orange
-}

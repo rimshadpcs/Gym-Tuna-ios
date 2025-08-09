@@ -566,67 +566,178 @@ struct FinishWorkoutBottomSheet: View {
     let onForceFinish: () -> Void
     let onDismiss: () -> Void
     
+    private var colors: ThemeColorScheme {
+        themeManager?.colors ?? ThemeColorScheme(
+            primary: LightThemeColors.primary,
+            onPrimary: LightThemeColors.onPrimary,
+            secondary: LightThemeColors.secondary,
+            onSecondary: LightThemeColors.onSecondary,
+            background: LightThemeColors.background,
+            onBackground: LightThemeColors.onBackground,
+            surface: LightThemeColors.surface,
+            onSurface: LightThemeColors.onSurface,
+            outline: LightThemeColors.outline,
+            primaryContainer: LightThemeColors.primaryContainer,
+            onPrimaryContainer: LightThemeColors.onPrimaryContainer,
+            surfaceVariant: LightThemeColors.surfaceVariant,
+            onSurfaceVariant: LightThemeColors.onSurfaceVariant,
+            error: LightThemeColors.error,
+            shadow: LightThemeColors.shadow
+        )
+    }
+    
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: MaterialSpacing.xl) {
             // Drag handle
             RoundedRectangle(cornerRadius: 2.5)
-                .fill(Color.gray.opacity(0.3))
+                .fill((colors.onSurfaceVariant ?? colors.onSurface).opacity(0.4))
                 .frame(width: 36, height: 5)
             
-            VStack(spacing: 16) {
-                Text("Finish Workout")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundColor(.primary)
-                
-                VStack(spacing: 8) {
-                    Text("Completed \(completionStatus.completedSets)/\(completionStatus.totalSets) sets")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.primary)
+            VStack(spacing: MaterialSpacing.lg) {
+                // Header with icon
+                VStack(spacing: MaterialSpacing.md) {
+                    // Success/Warning Icon
+                    ZStack {
+                        Circle()
+                            .fill(completionStatus.isFullyCompleted ? Color.green.opacity(0.1) : Color.orange.opacity(0.1))
+                            .frame(width: 56, height: 56)
+                        
+                        Image(systemName: completionStatus.isFullyCompleted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                            .font(.system(size: 28))
+                            .foregroundColor(completionStatus.isFullyCompleted ? .green : .orange)
+                    }
                     
+                    Text(completionStatus.isFullyCompleted ? "Workout Complete!" : "Finish Workout?")
+                        .font(MaterialTypography.headline6)
+                        .foregroundColor(colors.onSurface)
+                        .multilineTextAlignment(.center)
+                }
+                
+                // Completion details
+                VStack(spacing: MaterialSpacing.sm) {
+                    // Progress summary
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Sets Completed")
+                                .font(MaterialTypography.caption)
+                                .foregroundColor(colors.onSurfaceVariant)
+                            Text("\(completionStatus.completedSets) of \(completionStatus.totalSets)")
+                                .font(MaterialTypography.subtitle2)
+                                .foregroundColor(colors.onSurface)
+                        }
+                        
+                        Spacer()
+                        
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text("Exercises")
+                                .font(MaterialTypography.caption)
+                                .foregroundColor(colors.onSurfaceVariant)
+                            Text("\(completionStatus.completedExercises.count) of \(completionStatus.totalExercises)")
+                                .font(MaterialTypography.subtitle2)
+                                .foregroundColor(colors.onSurface)
+                        }
+                    }
+                    .padding(MaterialSpacing.lg)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill((colors.surfaceVariant ?? colors.surface).opacity(0.5))
+                    )
+                    
+                    // Warning message for incomplete workout
                     if !completionStatus.isFullyCompleted {
-                        Text("Some sets are incomplete. Are you sure you want to finish?")
-                            .font(.system(size: 14, weight: .regular))
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
+                        HStack(spacing: MaterialSpacing.sm) {
+                            Image(systemName: "info.circle")
+                                .foregroundColor(.orange)
+                                .font(.system(size: 16))
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Incomplete Workout")
+                                    .font(MaterialTypography.subtitle2)
+                                    .foregroundColor(colors.onSurface)
+                                
+                                if completionStatus.incompleteExercises.count == 1 {
+                                    Text("1 exercise with incomplete sets")
+                                        .font(MaterialTypography.body2)
+                                        .foregroundColor(colors.onSurfaceVariant)
+                                } else {
+                                    Text("\(completionStatus.incompleteExercises.count) exercises with incomplete sets")
+                                        .font(MaterialTypography.body2)
+                                        .foregroundColor(colors.onSurfaceVariant)
+                                }
+                            }
+                            
+                            Spacer()
+                        }
+                        .padding(MaterialSpacing.lg)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.orange.opacity(0.1))
+                        )
                     }
                 }
                 
-                HStack(spacing: 12) {
-                    Button("Cancel") {
-                        onDismiss()
-                    }
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.primary)
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 24)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.gray, lineWidth: 1)
-                    )
-                    
-                    Button(completionStatus.isFullyCompleted ? "Finish" : "Force Finish") {
+                // Action buttons
+                VStack(spacing: MaterialSpacing.md) {
+                    // Primary action button
+                    Button(action: {
                         if completionStatus.isFullyCompleted {
                             onConfirm()
                         } else {
                             onForceFinish()
                         }
+                    }) {
+                        HStack {
+                            if isLoading {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                    .tint(colors.onPrimary)
+                            } else {
+                                Image(systemName: completionStatus.isFullyCompleted ? "checkmark" : "flag.fill")
+                                    .font(.system(size: 16, weight: .medium))
+                            }
+                            
+                            Text(completionStatus.isFullyCompleted ? "Finish Workout" : "Finish Anyway")
+                                .font(MaterialTypography.button)
+                                .fontWeight(.semibold)
+                        }
+                        .foregroundColor(colors.onPrimary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, MaterialSpacing.lg)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(colors.primary)
+                        )
                     }
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white)
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 24)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(.blue)
-                    )
                     .disabled(isLoading)
+                    
+                    // Cancel button
+                    Button("Cancel") {
+                        onDismiss()
+                    }
+                    .font(MaterialTypography.button)
+                    .fontWeight(.medium)
+                    .foregroundColor(colors.onSurface)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, MaterialSpacing.lg)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(colors.outline, lineWidth: 1)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(colors.surface)
+                            )
+                    )
                 }
             }
             
-            Spacer()
+            Spacer(minLength: 0)
         }
-        .padding(24)
-        .presentationDetents([.height(280)])
+        .padding(MaterialSpacing.xl)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(colors.surface)
+        )
+        .presentationDetents([.height(420)])
         .presentationDragIndicator(.hidden)
     }
 }
@@ -643,73 +754,165 @@ struct QuickWorkoutFinishBottomSheet: View {
     
     @State private var routineName = ""
     
+    private var colors: ThemeColorScheme {
+        themeManager?.colors ?? ThemeColorScheme(
+            primary: LightThemeColors.primary,
+            onPrimary: LightThemeColors.onPrimary,
+            secondary: LightThemeColors.secondary,
+            onSecondary: LightThemeColors.onSecondary,
+            background: LightThemeColors.background,
+            onBackground: LightThemeColors.onBackground,
+            surface: LightThemeColors.surface,
+            onSurface: LightThemeColors.onSurface,
+            outline: LightThemeColors.outline,
+            primaryContainer: LightThemeColors.primaryContainer,
+            onPrimaryContainer: LightThemeColors.onPrimaryContainer,
+            surfaceVariant: LightThemeColors.surfaceVariant,
+            onSurfaceVariant: LightThemeColors.onSurfaceVariant,
+            error: LightThemeColors.error,
+            shadow: LightThemeColors.shadow
+        )
+    }
+    
     private var canSaveAsRoutine: Bool {
         isPremium || routineCount < 3
     }
     
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: MaterialSpacing.xl) {
             // Drag handle
             RoundedRectangle(cornerRadius: 2.5)
-                .fill(Color.gray.opacity(0.3))
+                .fill((colors.onSurfaceVariant ?? colors.onSurface).opacity(0.4))
                 .frame(width: 36, height: 5)
             
-            VStack(spacing: 16) {
-                Text("Save as Routine?")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundColor(.primary)
-                
-                if canSaveAsRoutine {
-                    TextField("Enter routine name", text: $routineName)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(size: 16, weight: .regular))
-                } else {
-                    VStack(spacing: 8) {
-                        Text("Routine limit reached")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.red)
+            VStack(spacing: MaterialSpacing.lg) {
+                // Header with icon
+                VStack(spacing: MaterialSpacing.md) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.blue.opacity(0.1))
+                            .frame(width: 56, height: 56)
                         
-                        Text("Upgrade to premium to save unlimited routines")
-                            .font(.system(size: 14, weight: .regular))
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
+                        Image(systemName: "folder.fill.badge.plus")
+                            .font(.system(size: 28))
+                            .foregroundColor(.blue)
+                    }
+                    
+                    Text("Save as Routine?")
+                        .font(MaterialTypography.headline6)
+                        .foregroundColor(colors.onSurface)
+                        .multilineTextAlignment(.center)
+                    
+                    Text("Great workout! Save this as a routine for future sessions.")
+                        .font(MaterialTypography.body2)
+                        .foregroundColor(colors.onSurfaceVariant)
+                        .multilineTextAlignment(.center)
+                }
+                
+                // Routine name input or upgrade message
+                if canSaveAsRoutine {
+                    VStack(spacing: MaterialSpacing.sm) {
+                        HStack {
+                            Text("Routine Name")
+                                .font(MaterialTypography.subtitle2)
+                                .foregroundColor(colors.onSurface)
+                            Spacer()
+                        }
+                        
+                        TextField("Enter routine name", text: $routineName)
+                            .font(MaterialTypography.body1)
+                            .padding(MaterialSpacing.lg)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(colors.outline, lineWidth: 1)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .fill(colors.surface)
+                                    )
+                            )
+                            .foregroundColor(colors.onSurface)
+                    }
+                } else {
+                    VStack(spacing: MaterialSpacing.sm) {
+                        HStack(spacing: MaterialSpacing.sm) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                                .font(.system(size: 16))
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Routine Limit Reached")
+                                    .font(MaterialTypography.subtitle2)
+                                    .foregroundColor(colors.onSurface)
+                                
+                                Text("You have \(routineCount)/3 routines. Upgrade to Premium for unlimited routines.")
+                                    .font(MaterialTypography.body2)
+                                    .foregroundColor(colors.onSurfaceVariant)
+                            }
+                            
+                            Spacer()
+                        }
+                        .padding(MaterialSpacing.lg)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.orange.opacity(0.1))
+                        )
                     }
                 }
                 
-                HStack(spacing: 12) {
+                // Action buttons
+                VStack(spacing: MaterialSpacing.md) {
+                    if canSaveAsRoutine {
+                        // Save & Finish button
+                        Button(action: {
+                            onSaveAndFinish(routineName)
+                        }) {
+                            HStack {
+                                Image(systemName: "folder.fill.badge.plus")
+                                    .font(.system(size: 16, weight: .medium))
+                                
+                                Text("Save & Finish")
+                                    .font(MaterialTypography.button)
+                                    .fontWeight(.semibold)
+                            }
+                            .foregroundColor(colors.onPrimary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, MaterialSpacing.lg)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(colors.primary)
+                            )
+                        }
+                        .disabled(routineName.isEmpty)
+                    }
+                    
+                    // Just Finish button
                     Button("Just Finish") {
                         onJustFinish()
                     }
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.primary)
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 20)
+                    .font(MaterialTypography.button)
+                    .fontWeight(.medium)
+                    .foregroundColor(colors.onSurface)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, MaterialSpacing.lg)
                     .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.gray, lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(colors.outline, lineWidth: 1)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(colors.surface)
+                            )
                     )
-                    
-                    if canSaveAsRoutine {
-                        Button("Save & Finish") {
-                            onSaveAndFinish(routineName)
-                        }
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
-                        .padding(.vertical, 12)
-                        .padding(.horizontal, 20)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(.blue)
-                        )
-                        .disabled(routineName.isEmpty)
-                    }
                 }
             }
             
-            Spacer()
+            Spacer(minLength: 0)
         }
-        .padding(24)
-        .presentationDetents([.height(300)])
+        .padding(MaterialSpacing.xl)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(colors.surface)
+        )
+        .presentationDetents([.height(canSaveAsRoutine ? 450 : 400)])
         .presentationDragIndicator(.hidden)
     }
 }

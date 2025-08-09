@@ -88,11 +88,11 @@ struct SetRowComponent: View {
         HStack(spacing: 4) {
             // Set number or trophy
             setNumberView
-                .frame(width: 32, alignment: .center) // Reduced by 20%: 40 -> 32
+                .frame(width: 40, alignment: .center) // Reduced by 20%: 40 -> 32
             
             // Previous performance
             previousPerformanceView
-                .frame(width: 40, alignment: .center) // Reduced by 20%: 50 -> 40
+                .frame(width: 50, alignment: .center) // Reduced by 20%: 50 -> 40
             
             // Best performance
             bestPerformanceView
@@ -104,13 +104,13 @@ struct SetRowComponent: View {
             
             // Completion checkbox - fixed position
             completionCheckboxView
-                .frame(width: 22, height: 22) // Reduced by 20%: 28 -> 22
+                .frame(width: 22, height: 18) // Reduced by 20%: 28 -> 22
                 .onAppear { print("🔲 Checkbox appeared for set \(setNumber), completed: \(set.isCompleted)") }
         }
-        .padding(.horizontal, 20) // Reduced by 20%: 24 -> 20
-        .frame(height: 45) // Reduced by 20%: 56 -> 45
+        .padding(.horizontal, 30) // Reduced by 20%: 24 -> 20
+        .frame(height: 42) // Reduced by 20%: 56 -> 45
         .background(backgroundColorForRow)
-        .cornerRadius(6) // Reduced by 20%: 8 -> 6
+        .cornerRadius(8) // Reduced by 20%: 8 -> 6
         .overlay(
             RoundedRectangle(cornerRadius: 6)
                 .stroke(rowBorderColor, lineWidth: isSessionBestPR ? 3 : 0) // Increased for visibility
@@ -181,20 +181,18 @@ struct SetRowComponent: View {
     private var setNumberView: some View {
         ZStack {
             if isSessionBestPR {
-                VStack(spacing: 1) {
-                    Text("🏆")
-                        .font(.system(size: 14)) // Consistent size
-                    Text("\(setNumber)")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(Color(hex: "#FFD700") ?? .yellow)
-                }
+                Text("🏆")
+                    .font(.system(size: 18))
+                    .frame(width: 28, height: 28)
             } else {
                 Text("\(setNumber)")
-                    .font(.system(size: 12, weight: .medium)) // Consistent with other text
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundColor(themeManager.colors.onSurface)
             }
         }
     }
+
+
     
     private var previousPerformanceView: some View {
         VStack(spacing: 1) {
@@ -573,17 +571,22 @@ struct SetRowComponent: View {
     
     private var backgroundColorForRow: Color {
         if set.isCompleted {
-            return isDarkTheme ? Color(red: 46/255, green: 255/255, blue: 66/255, opacity: 1.0) : Color(red: 27/255, green: 225/255, blue: 45/255, opacity: 1.0)
+            // Bright, uniform green for both themes
+            return Color(red: 0/255, green: 200/255, blue: 83/255) // Material Design green A700
         } else if isSessionBestPR {
-            return Color(hex: "FFD700")?.opacity(0.2) ?? Color.yellow.opacity(0.2) // Increased opacity for better visibility
+            return Color.yellow.opacity(0.15) // Light gold background for PR sets
         } else {
-            return isDarkTheme ? Color(hex: "212121") ?? themeManager.colors.surface : themeManager.colors.surface
+            return isDarkTheme
+                ? Color(red: 33/255, green: 33/255, blue: 33/255) // Dark gray
+                : themeManager.colors.surface
         }
     }
+
     
     private var rowBorderColor: Color {
         if isSessionBestPR {
-            return Color(hex: "#FFD700") ?? .yellow
+            // Use a brighter, more visible gold color
+            return Color.yellow.opacity(0.9)
         } else {
             return Color.clear
         }

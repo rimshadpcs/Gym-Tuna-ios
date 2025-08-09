@@ -17,21 +17,27 @@ class ExerciseChannel {
     private init() {}
     
     func sendExercise(_ exercise: Exercise) {
-        print("📤 ExerciseChannel: Sending exercise: \(exercise.name)")
+        print("📤 ExerciseChannel: Sending exercise: \(exercise.name) (ID: '\(exercise.id)')")
+        print("📤 Previous pending exercise: \(pendingExercise?.name ?? "nil")")
         pendingExercise = exercise
+        print("📤 Exercise sent successfully")
     }
     
     func consumeExercise() -> Exercise? {
         let exercise = pendingExercise
+        print("📥 ExerciseChannel: Consuming exercise: \(exercise?.name ?? "nil") (ID: '\(exercise?.id ?? "nil")')")
         pendingExercise = nil
-        if let exercise = exercise {
-            print("📥 ExerciseChannel: Consuming exercise: \(exercise.name)")
-        }
+        print("📥 Exercise consumed, channel cleared")
         return exercise
     }
     
     func hasPendingExercise() -> Bool {
-        return pendingExercise != nil
+        let hasPending = pendingExercise != nil
+        print("🔍 ExerciseChannel: hasPendingExercise() -> \(hasPending)")
+        if hasPending {
+            print("🔍 Pending exercise: \(pendingExercise?.name ?? "unknown")")
+        }
+        return hasPending
     }
     
     func clearPendingExercise() {

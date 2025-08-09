@@ -80,3 +80,4 @@ struct DarkThemeColors {
     static let error = Color.red
     static let shadow = ThemeColors.black.opacity(0.5)
 }
+

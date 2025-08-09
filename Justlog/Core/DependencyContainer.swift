@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import FirebaseFirestore
 import FirebaseAuth
 
@@ -14,8 +15,8 @@ class DependencyContainer: ObservableObject {
     
     // MARK: - Repositories
     private(set) lazy var authRepository: AuthRepository = AuthRepositoryImpl(
-        firestore: firestore,
-        auth: auth
+        userPreferences: userPreferences,
+        googleSignInHelper: googleSignInHelper
     )
     
     private(set) lazy var workoutRepository: WorkoutRepository = WorkoutRepositoryImpl(
@@ -29,20 +30,14 @@ class DependencyContainer: ObservableObject {
         authRepository: authRepository
     )
     
-    private(set) lazy var workoutHistoryRepository: WorkoutHistoryRepository = WorkoutHistoryRepositoryImpl(
-        firestore: firestore,
-        authRepository: authRepository
-    )
+    private(set) lazy var workoutHistoryRepository: WorkoutHistoryRepository = WorkoutHistoryRepositoryImpl()
     
     private(set) lazy var subscriptionRepository: SubscriptionRepository = SubscriptionRepositoryImpl(
         firestore: firestore,
         auth: auth
     )
     
-    private(set) lazy var counterRepository: CounterRepository = CounterRepositoryImpl(
-        firestore: firestore,
-        authRepository: authRepository
-    )
+    private(set) lazy var counterRepository: CounterRepository = CounterRepositoryImpl()
     
     // MARK: - Utilities
     private(set) lazy var firestoreRepository = FirestoreRepository(
@@ -51,7 +46,9 @@ class DependencyContainer: ObservableObject {
     )
     
     private(set) lazy var userPreferences = UserPreferences.shared
-    private(set) lazy var restTimerManager = RestTimerManager.shared
+    private(set) lazy var restTimerManager = RestTimerManager()
+    private(set) lazy var googleSignInHelper = GoogleSignInHelper()
+    private(set) lazy var workoutSessionManager = WorkoutSessionManager.shared
     
     // MARK: - Initialization
     private init() {
@@ -63,7 +60,8 @@ class DependencyContainer: ObservableObject {
     func makeAuthViewModel() -> AuthViewModel {
         return AuthViewModel(
             authRepository: authRepository,
-            firestoreRepository: firestoreRepository
+            googleSignInHelper: googleSignInHelper,
+            userPreferences: userPreferences
         )
     }
     
@@ -71,35 +69,29 @@ class DependencyContainer: ObservableObject {
         return HomeViewModel(
             workoutRepository: workoutRepository,
             authRepository: authRepository,
-            workoutHistoryRepository: workoutHistoryRepository,
-            subscriptionRepository: subscriptionRepository
+            workoutSessionManager: workoutSessionManager,
+            workoutHistoryRepository: workoutHistoryRepository
         )
     }
     
-    func makeWorkoutViewModel(routineId: String) -> WorkoutViewModel {
+    func makeWorkoutViewModel(routineId: String?, routineName: String) -> WorkoutViewModel {
         return WorkoutViewModel(
             routineId: routineId,
-            workoutRepository: workoutRepository,
-            workoutHistoryRepository: workoutHistoryRepository,
-            authRepository: authRepository,
-            subscriptionRepository: subscriptionRepository,
-            userPreferences: userPreferences,
-            restTimerManager: restTimerManager
+            routineName: routineName,
+            workoutSessionManager: workoutSessionManager,
+            workoutHistoryRepository: workoutHistoryRepository
         )
     }
     
     func makeExerciseSearchViewModel() -> ExerciseSearchViewModel {
         return ExerciseSearchViewModel(
-            exerciseRepository: exerciseRepository,
-            workoutRepository: workoutRepository,
-            subscriptionRepository: subscriptionRepository
+            exerciseRepository: exerciseRepository
         )
     }
     
     func makeCreateRoutineViewModel() -> CreateRoutineViewModel {
         return CreateRoutineViewModel(
             workoutRepository: workoutRepository,
-            exerciseRepository: exerciseRepository,
             authRepository: authRepository,
             subscriptionRepository: subscriptionRepository
         )
@@ -115,22 +107,22 @@ class DependencyContainer: ObservableObject {
     
     func makeSubscriptionViewModel() -> SubscriptionViewModel {
         return SubscriptionViewModel(
-            subscriptionRepository: subscriptionRepository,
-            authRepository: authRepository
+            subscriptionRepository: subscriptionRepository
         )
     }
     
     func makeHistoryViewModel() -> HistoryViewModel {
         return HistoryViewModel(
-            workoutHistoryRepository: workoutHistoryRepository,
-            workoutRepository: workoutRepository,
-            authRepository: authRepository
+            historyRepository: workoutHistoryRepository,
+            authRepository: authRepository,
+            userPreferences: userPreferences
         )
     }
     
     func makeCounterViewModel() -> CounterViewModel {
         return CounterViewModel(
             counterRepository: counterRepository,
+            subscriptionRepository: subscriptionRepository,
             authRepository: authRepository
         )
     }

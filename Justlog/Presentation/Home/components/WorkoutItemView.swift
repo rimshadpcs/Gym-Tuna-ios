@@ -50,12 +50,12 @@ struct WorkoutItemView: View {
                 Button(action: onStartClick) {
                     Text("Start")
                         .vagFont(size: 13, weight: .medium)
-                        .foregroundColor(isDarkTheme ? Color.black : Color.white)
+                        .foregroundColor(isDarkTheme ? Color.white : (themeManager?.colors.onSurface ?? LightThemeColors.onSurface))
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
                         .background(
                             RoundedRectangle(cornerRadius: 6)
-                                .fill(themeManager?.colors.primary ?? LightThemeColors.primary)
+                                .fill(isDarkTheme ? Color.black : (themeManager?.colors.surface ?? LightThemeColors.surface))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 6)
                                         .stroke(
@@ -79,7 +79,7 @@ struct WorkoutItemView: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.vertical, 16)
         .background(
             RoundedRectangle(cornerRadius: MaterialCornerRadius.card)
                 .fill(themeManager?.colors.surface ?? LightThemeColors.surface)

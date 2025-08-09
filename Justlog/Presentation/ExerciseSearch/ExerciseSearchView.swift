@@ -27,6 +27,7 @@ struct ExerciseSearchView: View {
         self.onCreateExercise = onCreateExercise
     }
     
+    
     var body: some View {
         VStack(spacing: 0) {
             // Top Navigation Bar
@@ -50,7 +51,7 @@ struct ExerciseSearchView: View {
             // Exercise List
             exerciseList
         }
-        .background(MaterialColors.background)
+        .background(themeManager?.colors.background)
         .navigationBarHidden(true)
         .onAppear {
             viewModel.loadExercises()
@@ -67,20 +68,21 @@ struct ExerciseSearchView: View {
             
             Text("Add Exercises")
                 .font(MaterialTypography.headline6)
-                .foregroundColor(MaterialColors.onBackground)
+                // 👇 This line was changed
+                .foregroundColor(themeManager?.colors.onBackground)
             
             Spacer()
         }
         .padding(.horizontal, MaterialSpacing.screenHorizontal)
         .padding(.vertical, MaterialSpacing.md)
-        .background(MaterialColors.surface)
+        .background(themeManager?.colors.surface)
     }
-    
     // MARK: - Search Bar
     private var searchBar: some View {
+        
         HStack {
             Image(systemName: "magnifyingglass")
-                .foregroundColor(.gray)
+                .foregroundColor(themeManager?.colors.onSurfaceVariant ?? .secondary)
                 .font(.system(size: 16))
             
             TextField("Search exercises...", text: $searchText)
@@ -90,7 +92,7 @@ struct ExerciseSearchView: View {
             if !searchText.isEmpty {
                 Button(action: { searchText = "" }) {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.gray)
+                        .foregroundColor(themeManager?.colors.onSurfaceVariant ?? .secondary)
                         .font(.system(size: 16))
                 }
             }
@@ -126,11 +128,11 @@ struct ExerciseSearchView: View {
             HStack(spacing: 12) {
                 Image(systemName: "plus")
                     .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(MaterialColors.onSurface)
+                    .foregroundColor(themeManager?.colors.onSurface)
                 
                 Text("Create Exercise")
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(MaterialColors.onSurface)
+                    .foregroundColor(themeManager?.colors.onSurface)
                 
                 Spacer()
             }
@@ -139,10 +141,11 @@ struct ExerciseSearchView: View {
             .frame(maxWidth: .infinity)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(MaterialColors.surface)
+                    // 👇 This line was changed
+                    .fill(themeManager?.colors.surface ?? LightThemeColors.surface)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color(.systemGray4), lineWidth: 1)
+                            .stroke(themeManager?.colors.outline ?? Color(.systemGray4), lineWidth: 1)
                     )
             )
         }
@@ -158,7 +161,7 @@ struct ExerciseSearchView: View {
                     ProgressView()
                         .scaleEffect(1.2)
                     Text("Loading exercises...")
-                        .foregroundColor(.secondary)
+                        .foregroundColor(themeManager?.colors.onSurfaceVariant ?? .secondary)
                         .padding(.top, 8)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -172,11 +175,11 @@ struct ExerciseSearchView: View {
                         
                         Text("No exercises found")
                             .font(.headline)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(themeManager?.colors.onSurfaceVariant ?? .secondary)
                         
                         Text("Try adjusting your search or filter")
                             .font(.body)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(themeManager?.colors.onSurfaceVariant ?? .secondary)
                             .multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -214,7 +217,7 @@ struct ExerciseSearchView: View {
                     
                     Text(message)
                         .font(.body)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(themeManager?.colors.onSurfaceVariant ?? .secondary) // 👈 Changed here
                         .multilineTextAlignment(.center)
                     
                     Button("Retry") {
@@ -333,12 +336,14 @@ struct ExerciseItemView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(exercise.name)
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(.black)
+                        // Use the theme's color for text on a surface
+                        .foregroundColor(themeManager?.colors.onSurface ?? .primary)
                         .multilineTextAlignment(.leading)
-                    
+                        
                     Text(equipmentText.lowercased())
                         .font(.system(size: 14))
-                        .foregroundColor(.gray)
+                        // Use the theme's variant color for secondary text
+                        .foregroundColor(themeManager?.colors.onSurfaceVariant ?? .secondary)
                 }
                 
                 Spacer()

@@ -101,7 +101,7 @@ struct QuickActionButton: View {
             VStack(spacing: 8) {
                 // Use custom icons like Android
                 if title == "Quick Start" {
-                    Image("plus")
+                    Image(isDarkTheme ? "plus_dark" : "plus")
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 24, height: 24)

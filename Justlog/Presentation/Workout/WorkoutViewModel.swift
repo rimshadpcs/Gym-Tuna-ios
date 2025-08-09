@@ -223,23 +223,23 @@ class WorkoutViewModel: ObservableObject {
                 originalRoutineName = routine.name
                 routineName = routine.name
                 
-                // Create basic workout exercises
-                let basicWorkoutExercises = routine.exercises.map { exercise in
+                // Create basic workout exercises with DEFAULT values pre-populated (matching Android)
+                let basicWorkoutExercises = routine.exercises.map { workoutExercise in
                     WorkoutExercise(
-                        exercise: exercise,
-                        sets: (0..<exercise.defaultSets).map { idx in
+                        exercise: workoutExercise.exercise,
+                        sets: (0..<workoutExercise.exercise.defaultSets).map { idx in
                             ExerciseSet(
                                 setNumber: idx + 1,
-                                weight: exercise.usesWeight && !exercise.isBodyweight ? 0.0 : 0.0,
-                                reps: exercise.defaultReps,
-                                distance: exercise.tracksDistance ? 0.0 : 0.0,
-                                time: exercise.isTimeBased ? 0 : 0,
+                                weight: workoutExercise.exercise.usesWeight && !workoutExercise.exercise.isBodyweight ? 0.0 : 0.0,
+                                reps: workoutExercise.exercise.defaultReps,
+                                distance: workoutExercise.exercise.tracksDistance ? 0.0 : 0.0,
+                                time: workoutExercise.exercise.isTimeBased ? 0 : 0,
                                 isCompleted: false
                             )
                         },
                         notes: "",
-                        isSuperset: exercise.isSuperset,
-                        isDropset: exercise.isDropset
+                        isSuperset: workoutExercise.exercise.isSuperset,
+                        isDropset: workoutExercise.exercise.isDropset
                     )
                 }
                 
@@ -256,7 +256,7 @@ class WorkoutViewModel: ObservableObject {
                 )
                 
                 // Load historical data in background
-                await loadHistoricalDataInBackground(routine.exercises)
+                await loadHistoricalDataInBackground(routine.exercises.map { $0.exercise })
                 
             } catch {
                 print("❌ Error initializing routine: \(error)")
@@ -276,6 +276,15 @@ class WorkoutViewModel: ObservableObject {
         routineName = workoutName
         exercises = []
         
+        // Check for pending exercises from ExerciseChannel on quick workout start
+        if ExerciseChannel.shared.hasPendingExercise() {
+            if let pendingExercise = ExerciseChannel.shared.consumeExercise() {
+                print("🎁 Quick workout: Adding pending exercise from channel: \(pendingExercise.name)")
+                // Don't call addExercise directly here as it would update session before initialization
+                // Instead, we'll check for it after initialization
+            }
+        }
+        
         // Start session for quick workout
         workoutSessionManager.startWorkout(
             routineId: nil,
@@ -285,6 +294,18 @@ class WorkoutViewModel: ObservableObject {
         
         isInitialized = true
         print("✅ Quick workout initialized: \(workoutName)")
+        
+        // Now check again for pending exercises after initialization
+        checkForPendingExercises()
+    }
+    
+    func checkForPendingExercises() {
+        if ExerciseChannel.shared.hasPendingExercise() {
+            if let pendingExercise = ExerciseChannel.shared.consumeExercise() {
+                print("🎁 WorkoutViewModel: Processing pending exercise after initialization: \(pendingExercise.name)")
+                addExercise(pendingExercise)
+            }
+        }
     }
     
     func initializeFromSession() {
@@ -412,7 +433,18 @@ class WorkoutViewModel: ObservableObject {
         let exerciseWithId = exercise.id.isEmpty ? 
             exercise.copy(id: exercise.name.camelCaseId()) : exercise
         
-        print("addExercise → \(exerciseWithId.name) (id='\(exerciseWithId.id)')")
+        print("🚀 WorkoutViewModel.addExercise → \(exerciseWithId.name) (id='\(exerciseWithId.id)')")
+        print("🔍 Current exercises count before adding: \(exercises.count)")
+        print("🔍 Current exercises: \(exercises.map { $0.exercise.name })")
+        
+        // Check for pending exercises from ExerciseChannel (similar to CreateRoutineViewModel)
+        if ExerciseChannel.shared.hasPendingExercise() {
+            if let pendingExercise = ExerciseChannel.shared.consumeExercise() {
+                print("🎁 WorkoutViewModel: Found pending exercise from ExerciseChannel: \(pendingExercise.name)")
+                // Use the pending exercise instead of the parameter
+                return addExercise(pendingExercise)
+            }
+        }
         
         // Simple duplicate guard
         if exercises.contains(where: { $0.exercise.id == exerciseWithId.id }) {
@@ -433,21 +465,32 @@ class WorkoutViewModel: ObservableObject {
             )
         }
         
-        // Append & publish
-        exercises.append(WorkoutExercise(
+        print("🔧 Creating \(newSets.count) sets for exercise")
+        
+        // Create new WorkoutExercise
+        let newWorkoutExercise = WorkoutExercise(
             exercise: exerciseWithId,
             sets: newSets,
             notes: "",
             isSuperset: exerciseWithId.isSuperset,
             isDropset: exerciseWithId.isDropset
-        ))
+        )
+        
+        // Append & publish
+        exercises.append(newWorkoutExercise)
+        
+        print("✅ Exercise appended. New count: \(exercises.count)")
+        print("✅ All exercises now: \(exercises.map { $0.exercise.name })")
+        print("🔄 exercises.isEmpty = \(exercises.isEmpty)")
         
         // House-keeping
         isRoutineModified = currentRoutineId != nil
         workoutSessionManager.updateCurrentExercise(exerciseWithId.name)
         updateSessionExercises()
+        calculateStats()
         
-        print("✅ Added. Exercise count = \(exercises.count)")
+        print("🔄 Session updated and stats calculated")
+        print("📊 Total volume: \(totalVolume), Total sets: \(totalSets)")
     }
     
     func addSet(_ workoutExercise: WorkoutExercise) {
@@ -741,6 +784,23 @@ class WorkoutViewModel: ObservableObject {
                 
                 try await workoutHistoryRepository.saveWorkoutHistory(history)
                 
+                // Notify that workout is completed so calendar can refresh
+                await MainActor.run {
+                    NotificationCenter.default.post(name: NSNotification.Name("WorkoutCompleted"), object: nil)
+                }
+                
+                print("✅ Workout history saved successfully to Firebase")
+                print("🎉 WORKOUT FINISHED SUCCESSFULLY!")
+                print("   📝 Name: \(history.name)")
+                print("   ⏱️ Duration: \(history.formattedDuration)")
+                print("   💪 Completed Sets: \(history.totalSets)")
+                print("   🏋️ Volume: \(String(format: "%.1f", history.totalVolume)) kg")
+                print("   🎯 Exercises: \(history.exercises.count)")
+                
+                // Analytics: Log workout completed
+                let workoutDurationMinutes = Int((history.endTime.timeIntervalSince1970 - history.startTime.timeIntervalSince1970) / 60)
+                print("📊 Workout completed - Duration: \(workoutDurationMinutes) mins, Sets: \(history.totalSets), Exercises: \(completedExercises.count), Volume: \(history.totalVolume), Routine-based: \(currentRoutineId != nil)")
+                
                 // Update routine last performed
                 if let routineId = currentRoutineId {
                     try await workoutRepository.updateWorkoutLastPerformed(routineId: routineId, lastPerformed: history.endTime)
@@ -756,6 +816,7 @@ class WorkoutViewModel: ObservableObject {
                 workoutState = .success
                 
                 await MainActor.run {
+                    print("🚀 Calling success callback - workout should be dismissed now")
                     onSuccess()
                 }
                 
@@ -768,6 +829,16 @@ class WorkoutViewModel: ObservableObject {
     
     func discardWorkout() {
         print("🔥 Discarding workout")
+        
+        // Track workout abandonment analytics before clearing data
+        if isWorkoutActive {
+            let workoutDuration = Int((Date().timeIntervalSince1970 * 1000 - Double(startMs)) / 60000)
+            let completedSetsCount = exercises.flatMap { $0.sets }.count { $0.isCompleted }
+            let totalPlannedSets = exercises.flatMap { $0.sets }.count
+            let isRoutineBased = currentRoutineId != nil
+            
+            print("📊 Workout abandoned - Duration: \(workoutDuration) mins, Completed: \(completedSetsCount)/\(totalPlannedSets) sets, Routine-based: \(isRoutineBased)")
+        }
         
         // Stop the timer
         isWorkoutActive = false
@@ -792,40 +863,41 @@ class WorkoutViewModel: ObservableObject {
     
     func getWorkoutCompletionStatus() -> WorkoutCompletionStatus {
         let allExercises = exercises
-        let completedExercises = allExercises.filter { exercise in
-            let exerciseCompletedSets = exercise.sets.count { $0.isCompleted }
-            return exerciseCompletedSets == exercise.sets.count && exerciseCompletedSets > 0
-        }.map { exercise in
-            ExerciseCompletionInfo(
-                exerciseName: exercise.exercise.name,
-                totalSets: exercise.sets.count,
-                completedSets: exercise.sets.count { $0.isCompleted },
-                isFullyCompleted: true
-            )
-        }
+        var completedExercisesList: [ExerciseCompletionInfo] = []
+        var incompleteExercisesList: [ExerciseCompletionInfo] = []
         
-        let incompleteExercises = allExercises.filter { exercise in
-            let exerciseCompletedSets = exercise.sets.count { $0.isCompleted }
-            return exerciseCompletedSets < exercise.sets.count
-        }.map { exercise in
-            ExerciseCompletionInfo(
-                exerciseName: exercise.exercise.name,
-                totalSets: exercise.sets.count,
-                completedSets: exercise.sets.count { $0.isCompleted },
-                isFullyCompleted: false
-            )
-        }
+        var totalSetsCount = 0
+        var completedSetsCount = 0
         
-        let totalSets = allExercises.flatMap { $0.sets }.count
-        let completedSets = allExercises.flatMap { $0.sets }.count { $0.isCompleted }
+        // Process each exercise to build comprehensive completion info
+        allExercises.forEach { exercise in
+            let exerciseTotalSets = exercise.sets.count
+            let exerciseCompletedSets = exercise.sets.count { $0.isCompleted }
+            
+            totalSetsCount += exerciseTotalSets
+            completedSetsCount += exerciseCompletedSets
+            
+            let exerciseInfo = ExerciseCompletionInfo(
+                exerciseName: exercise.exercise.name,
+                totalSets: exerciseTotalSets,
+                completedSets: exerciseCompletedSets,
+                isFullyCompleted: exerciseCompletedSets == exerciseTotalSets && exerciseCompletedSets > 0
+            )
+            
+            if exerciseInfo.isFullyCompleted {
+                completedExercisesList.append(exerciseInfo)
+            } else {
+                incompleteExercisesList.append(exerciseInfo)
+            }
+        }
         
         return WorkoutCompletionStatus(
             totalExercises: allExercises.count,
-            completedExercises: completedExercises,
-            incompleteExercises: incompleteExercises,
-            totalSets: totalSets,
-            completedSets: completedSets,
-            isFullyCompleted: incompleteExercises.isEmpty && completedSets > 0
+            completedExercises: completedExercisesList,
+            incompleteExercises: incompleteExercisesList,
+            totalSets: totalSetsCount,
+            completedSets: completedSetsCount,
+            isFullyCompleted: incompleteExercisesList.isEmpty && completedSetsCount > 0
         )
     }
     
@@ -870,29 +942,17 @@ class WorkoutViewModel: ObservableObject {
                     return
                 }
                 
-                // Convert WorkoutExercises to Exercises
-                let exercisesList = exercises.map { workoutExercise in
-                    Exercise(
-                        id: workoutExercise.exercise.id,
-                        name: workoutExercise.exercise.name,
-                        muscleGroup: workoutExercise.exercise.muscleGroup,
-                        equipment: workoutExercise.exercise.equipment,
-                        defaultReps: workoutExercise.exercise.defaultReps,
-                        defaultSets: workoutExercise.exercise.defaultSets,
-                        isBodyweight: workoutExercise.exercise.isBodyweight,
-                        usesWeight: workoutExercise.exercise.usesWeight,
-                        tracksDistance: workoutExercise.exercise.tracksDistance,
-                        isTimeBased: workoutExercise.exercise.isTimeBased,
-                        description: workoutExercise.exercise.description
-                    )
-                }
+                // Generate proper workout ID and assign color similar to Android
+                let workoutId = UUID().uuidString
+                let colorHex = RoutineColors.byIndex(routineCount)
                 
                 let workout = Workout(
-                    id: routineName.lowercased().replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "[^a-z0-9_]", with: "", options: .regularExpression),
+                    id: workoutId,
                     name: routineName,
                     userId: userId,
-                    exercises: exercisesList,
-                    createdAt: Date()
+                    exercises: exercises,
+                    createdAt: Date(),
+                    colorHex: colorHex
                 )
                 
                 try await workoutRepository.createWorkout(workout)
@@ -1002,14 +1062,168 @@ class WorkoutViewModel: ObservableObject {
     
     // Historical data methods (simplified for now)
     private func findPreviousAndBestSets(exerciseId: String, isTimeBasedPure: Bool) async -> [Int: (CompletedSet?, CompletedSet?)] {
-        // Implementation would query historical workout data
-        // For now, return empty data
-        return [:]
+        guard let uid = try? await authRepository.getCurrentUser()?.id else { 
+            print("❌ No authenticated user for historical data lookup")
+            return [:] 
+        }
+        
+        print("🔍 Loading historical data for exercise: \(exerciseId)")
+        
+        do {
+            // Query workout history to find previous and best sets
+            let historyPublisher = workoutHistoryRepository.getWorkoutHistory(userId: uid)
+            
+            // Convert publisher to async/await
+            let workoutHistory = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[WorkoutHistory], Error>) in
+                var cancellable: AnyCancellable?
+                cancellable = historyPublisher
+                    .first()
+                    .sink(
+                        receiveCompletion: { completion in
+                            switch completion {
+                            case .failure(let error):
+                                continuation.resume(throwing: error)
+                            case .finished:
+                                break
+                            }
+                            cancellable?.cancel()
+                        },
+                        receiveValue: { workouts in
+                            continuation.resume(returning: workouts)
+                            cancellable?.cancel()
+                        }
+                    )
+            }
+            
+            print("📚 Loaded \(workoutHistory.count) workout history entries")
+            
+            var result: [Int: (CompletedSet?, CompletedSet?)] = [:]
+            var allSets: [CompletedSet] = []
+            var mostRecentSets: [CompletedSet] = []
+            
+            // Collect all sets for this exercise from history
+            for workout in workoutHistory.prefix(15) { // Look at last 15 workouts
+                for exercise in workout.exercises {
+                    if exercise.exerciseId == exerciseId || exercise.name.lowercased() == exerciseId.lowercased() {
+                        if mostRecentSets.isEmpty {
+                            mostRecentSets = exercise.sets // First matching workout = most recent
+                        }
+                        allSets.append(contentsOf: exercise.sets)
+                    }
+                }
+            }
+            
+            if allSets.isEmpty {
+                print("📭 No historical data found for exercise: \(exerciseId)")
+                return result
+            }
+            
+            print("📊 Found \(allSets.count) historical sets for analysis")
+            
+            // Group sets by position and find best for each position
+            let groupedSets = Dictionary(grouping: allSets) { $0.setNumber }
+            let previousGrouped = Dictionary(grouping: mostRecentSets) { $0.setNumber }
+            
+            let maxPosition = max(groupedSets.keys.max() ?? 0, previousGrouped.keys.max() ?? 0)
+            
+            for position in 1...maxPosition {
+                let previousSet = previousGrouped[position]?.first
+                
+                // Find best set for this position using scoring logic
+                var bestSet: CompletedSet?
+                if let setsAtPosition = groupedSets[position] {
+                    bestSet = findBestSet(in: setsAtPosition, isTimeBasedPure: isTimeBasedPure)
+                }
+                
+                result[position] = (previousSet, bestSet)
+            }
+            
+            print("✅ Historical data loaded for \(result.count) set positions")
+            return result
+            
+        } catch {
+            print("❌ Error loading historical data: \(error)")
+            return [:]
+        }
+    }
+    
+    private func findBestSet(in sets: [CompletedSet], isTimeBasedPure: Bool) -> CompletedSet? {
+        guard !sets.isEmpty else { return nil }
+        
+        // Priority scoring like in Kotlin:
+        // 1. Weight x distance (if both > 0)
+        // 2. Weight x reps (if weight > 0) 
+        // 3. Pure distance
+        // 4. Pure time (for time-based exercises, lower is better for some like plank, higher for others)
+        // 5. Pure reps
+        
+        let weightDistanceSets = sets.filter { $0.weight > 0 && $0.distance > 0 }
+        if !weightDistanceSets.isEmpty {
+            return weightDistanceSets.max { $0.weight * $0.distance < $1.weight * $1.distance }
+        }
+        
+        let weightSets = sets.filter { $0.weight > 0 }
+        if !weightSets.isEmpty {
+            return weightSets.max { $0.weight * Double($0.reps) < $1.weight * Double($1.reps) }
+        }
+        
+        let distanceSets = sets.filter { $0.distance > 0 }
+        if !distanceSets.isEmpty {
+            return distanceSets.max { $0.distance < $1.distance }
+        }
+        
+        let timeSets = sets.filter { $0.time > 0 }
+        if !timeSets.isEmpty {
+            // For time-based exercises, higher time is generally better (like plank hold)
+            return timeSets.max { $0.time < $1.time }
+        }
+        
+        // Fallback to reps
+        return sets.max { $0.reps < $1.reps }
     }
     
     private func lastNotesFor(exerciseId: String) async -> String? {
-        // Implementation would query last notes for exercise
-        return nil
+        guard let uid = try? await authRepository.getCurrentUser()?.id else { return nil }
+        
+        do {
+            let historyPublisher = workoutHistoryRepository.getWorkoutHistory(userId: uid)
+            
+            let workoutHistory = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[WorkoutHistory], Error>) in
+                var cancellable: AnyCancellable?
+                cancellable = historyPublisher
+                    .first()
+                    .sink(
+                        receiveCompletion: { completion in
+                            switch completion {
+                            case .failure(let error):
+                                continuation.resume(throwing: error)
+                            case .finished:
+                                break
+                            }
+                            cancellable?.cancel()
+                        },
+                        receiveValue: { workouts in
+                            continuation.resume(returning: workouts)
+                            cancellable?.cancel()
+                        }
+                    )
+            }
+            
+            // Find the most recent workout containing this exercise
+            for workout in workoutHistory {
+                for exercise in workout.exercises {
+                    if exercise.exerciseId == exerciseId || exercise.name.lowercased() == exerciseId.lowercased() {
+                        return exercise.notes.isEmpty ? nil : exercise.notes
+                    }
+                }
+            }
+            
+            return nil
+            
+        } catch {
+            print("❌ Error loading last notes: \(error)")
+            return nil
+        }
     }
 }
 

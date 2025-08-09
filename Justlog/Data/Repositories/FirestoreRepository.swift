@@ -22,16 +22,16 @@ class FirestoreRepository {
     
     // MARK: - User Profile Management
     func createOrUpdateUser(_ userProfile: UserProfile) async throws {
-        guard !userProfile.uid.isEmpty else {
+        guard !userProfile.id.isEmpty else {
             throw FirestoreError.invalidUserProfile("User UID cannot be empty")
         }
         
         do {
-            logger.info("Creating/updating user profile for uid: \(userProfile.uid)")
+            logger.info("Creating/updating user profile for uid: \(userProfile.id)")
             
             // First, check if user document exists
             let userDoc = try await firestore.collection(Self.USERS_COLLECTION)
-                .document(userProfile.uid)
+                .document(userProfile.id)
                 .getDocument()
             
             if !userDoc.exists {
@@ -39,7 +39,7 @@ class FirestoreRepository {
                 
                 // Create new profile
                 try await firestore.collection(Self.USERS_COLLECTION)
-                    .document(userProfile.uid)
+                    .document(userProfile.id)
                     .setData(userProfile.toDictionary())
                 
                 // Create initial stats
@@ -51,7 +51,7 @@ class FirestoreRepository {
                 ]
                 
                 try await firestore.collection(Self.USERS_COLLECTION)
-                    .document(userProfile.uid)
+                    .document(userProfile.id)
                     .collection(Self.USER_STATS_COLLECTION)
                     .document("stats")
                     .setData(initialStats)
@@ -66,7 +66,7 @@ class FirestoreRepository {
                 ]
                 
                 try await firestore.collection(Self.USERS_COLLECTION)
-                    .document(userProfile.uid)
+                    .document(userProfile.id)
                     .setData(updateData, merge: true)
                 
                 logger.info("Successfully updated user profile")
@@ -89,8 +89,9 @@ class FirestoreRepository {
             }
             
             // Map the exercises field
-            let exercisesList = (data["exercises"] as? [[String: Any]])?.compactMap { exerciseMap in
-                mapToExercise(exerciseMap)
+            let exercisesList: [WorkoutExercise] = (data["exercises"] as? [[String: Any]])?.compactMap { exerciseMap in
+                guard let exercise = mapToExercise(exerciseMap) else { return nil }
+                return WorkoutExercise(exercise: exercise, sets: [])
             } ?? []
             
             return Workout(
@@ -151,17 +152,17 @@ class FirestoreRepository {
             // Plank is a time-based, bodyweight exercise
             logger.debug("Applying plank defaults for: \(exercise.name)")
             return exercise.copyWith(
-                isTimeBased: true,
+                isBodyweight: true,
                 usesWeight: false,
-                isBodyweight: true
+                isTimeBased: true
             )
             
         case name.contains("hang") && !name.contains("hanging leg raise"):
             // Hanging exercises are typically time-based
             logger.debug("Applying hang defaults for: \(exercise.name)")
             return exercise.copyWith(
-                isTimeBased: true,
-                isBodyweight: true
+                isBodyweight: true,
+                isTimeBased: true
             )
             
         case name.contains("run") || name.contains("jog") || name.contains("walk"):
@@ -252,9 +253,11 @@ class FirestoreRepository {
                 uid: document.documentID,
                 displayName: data["displayName"] as? String ?? "",
                 email: data["email"] as? String ?? "",
-                photoURL: data["photoURL"] as? String,
                 createdAt: data["createdAt"] as? Int64 ?? Date().millisecondsSince1970,
-                lastLoginAt: data["lastLoginAt"] as? Int64
+                lastLoginAt: data["lastLoginAt"] as? Int64 ?? Date().millisecondsSince1970,
+                totalWorkouts: data["totalWorkouts"] as? Int ?? 0,
+                totalVolume: data["totalVolume"] as? Double ?? 0.0,
+                preferredMuscleGroups: data["preferredMuscleGroups"] as? [String] ?? []
             )
             
         } catch {
@@ -285,19 +288,16 @@ enum FirestoreError: LocalizedError {
 // MARK: - Extensions
 extension UserProfile {
     func toDictionary() -> [String: Any] {
-        var dict: [String: Any] = [
-            "uid": uid,
+        return [
+            "uid": id,
             "displayName": displayName,
             "email": email,
             "createdAt": createdAt,
-            "lastLoginAt": lastLoginAt ?? Date().millisecondsSince1970
+            "lastLoginAt": lastLoginAt,
+            "totalWorkouts": totalWorkouts,
+            "totalVolume": totalVolume,
+            "preferredMuscleGroups": preferredMuscleGroups
         ]
-        
-        if let photoURL = photoURL {
-            dict["photoURL"] = photoURL
-        }
-        
-        return dict
     }
 }
 

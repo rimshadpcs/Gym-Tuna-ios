@@ -12,15 +12,33 @@ import Combine
 class CreateRoutineViewModel: ObservableObject {
     
     // MARK: - Published Properties
-    @Published var routineName: String = ""
-    @Published var selectedExercises: [Exercise] = []
-    @Published var showUpgradeDialog: Bool = false
+    @Published var routineName: String = "" {
+        didSet {
+            if oldValue != routineName {
+                print("🏷️ routineName changed from '\(oldValue)' to '\(routineName)' (instance: \(Unmanaged.passUnretained(self).toOpaque()))")
+                if routineName.isEmpty && !oldValue.isEmpty {
+                    print("⚠️ WARNING: routineName was CLEARED! Previous value: '\(oldValue)'")
+                    print("⚠️ Stack trace:")
+                    Thread.callStackSymbols.prefix(10).forEach { print("  \($0)") }
+                }
+            }
+        }
+    }
+    @Published var selectedExercises: [Exercise] = [] {
+        didSet {
+            if oldValue.count != selectedExercises.count {
+                print("📋 selectedExercises changed from \(oldValue.count) to \(selectedExercises.count) exercises")
+                print("📋 New exercise names: \(selectedExercises.map { $0.name })")
+            }
+        }
+    }
+    @Published var showPremiumBenefits: Bool = false
     @Published var routineCount: Int = 0
     @Published var isPremium: Bool = false
-    @Published var routineLimitStatus: String = ""
-    private var selectedColorHex: String = RoutineColors.colorOptions[0].hex
     @Published var isLoading: Bool = false
     @Published var errorMessage: String? = nil
+    @Published var selectedColorHex: String = RoutineColors.colorOptions[0].hex
+    @Published var routineLimitStatus: String = ""
     @Published var lastAddedExercise: Exercise? = nil
     
     // MARK: - Private Properties
@@ -35,19 +53,32 @@ class CreateRoutineViewModel: ObservableObject {
     // MARK: - Initialization
     
     init(workoutRepository: WorkoutRepository, authRepository: AuthRepository, subscriptionRepository: SubscriptionRepository, routineId: String? = nil) {
-        print("🏗️ CreateRoutineViewModel: Initializing ViewModel for routineId: \(routineId ?? "new")")
+        print("🏗️ CreateRoutineViewModel: INIT called for routineId: \(routineId ?? "new")")
         self.workoutRepository = workoutRepository
         self.authRepository = authRepository
         self.subscriptionRepository = subscriptionRepository
         self.routineId = routineId
         
+        print("🏗️ CreateRoutineViewModel: Instance memory address: \(Unmanaged.passUnretained(self).toOpaque())")
+        
         Task {
             await loadInitialData()
             
+            // Only initialize routine if we're editing an existing routine
             if let routineId = routineId {
+                print("📝 Editing existing routine: \(routineId)")
+                print("📝 Current routineName before initialization: '\(self.routineName)'")
                 await initializeRoutine(routineId)
+                print("📝 Current routineName after initialization: '\(self.routineName)'")
+            } else {
+                print("✨ Creating new routine")
+                print("✨ Current routineName: '\(self.routineName)'")
+                print("✨ selectedExercises count: \(self.selectedExercises.count)")
             }
         }
+        
+        // Initial check for pending exercises
+        checkForPendingExercise()
     }
     
     // MARK: - Public Methods
@@ -78,9 +109,15 @@ class CreateRoutineViewModel: ObservableObject {
                     },
                     receiveValue: { [weak self] workouts in
                         if let routine = workouts.first(where: { $0.id == routineId }) {
+                            print("📝 initializeRoutine: Loading existing routine '\(routine.name)'")
+                            print("📝 Before setting - routineName: '\(self?.routineName ?? "nil")'")
                             self?.routineName = routine.name
-                            self?.selectedExercises = routine.exercises
+                            print("📝 After setting - routineName: '\(self?.routineName ?? "nil")'")
+                            self?.selectedExercises = routine.exercises.map { $0.exercise }
+                            print("📝 Loaded \(routine.exercises.count) exercises: \(routine.exercises.map { $0.exercise.name })")
                             self?.selectedColorHex = routine.colorHex ?? RoutineColors.colorOptions[0].hex
+                        } else {
+                            print("⚠️ initializeRoutine: No routine found with ID \(routineId)")
                         }
                         cancellable?.cancel()
                     }
@@ -95,15 +132,32 @@ class CreateRoutineViewModel: ObservableObject {
     }
     
     func setRoutineName(_ name: String) {
+        print("🏷️ setRoutineName called with: '\(name)' (instance: \(Unmanaged.passUnretained(self).toOpaque()))")
+        print("🏷️ Previous name was: '\(routineName)'")
         routineName = name
+        print("🏷️ Name set to: '\(routineName)'")
     }
     
     func addExercise(_ exercise: Exercise) {
         print("➕ CreateRoutineViewModel: Attempting to add exercise: \(exercise.name)")
-        if !selectedExercises.contains(where: { $0.id == exercise.id }) {
+        print("🔍 Current exercises: \(selectedExercises.map { $0.name })")
+        print("🔍 Exercise ID to add: '\(exercise.id)'")
+        print("🔍 Existing exercise IDs: \(selectedExercises.map { $0.id })")
+        
+        // Check for duplicates by ID
+        let isDuplicate = selectedExercises.contains { existingExercise in
+            let isMatch = existingExercise.id == exercise.id
+            if isMatch {
+                print("🔍 Found duplicate: '\(existingExercise.id)' == '\(exercise.id)'")
+            }
+            return isMatch
+        }
+        
+        if !isDuplicate {
             selectedExercises.append(exercise)
             lastAddedExercise = exercise
             print("✅ CreateRoutineViewModel: Exercise added. Total count: \(selectedExercises.count)")
+            print("✅ Updated exercise list: \(selectedExercises.map { $0.name })")
         } else {
             print("⚠️ CreateRoutineViewModel: Exercise already exists, skipping")
         }
@@ -125,7 +179,7 @@ class CreateRoutineViewModel: ObservableObject {
         if routineId == nil {
             let canCreate = await canCreateNewRoutine()
             if !canCreate {
-                showUpgradeDialog = true
+                showPremiumBenefits = true
                 return false
             }
         }
@@ -138,18 +192,29 @@ class CreateRoutineViewModel: ObservableObject {
                 return false
             }
             
-            // Auto-assign color based on routine count for new routines
-            let autoColorHex = routineId == nil ? 
-                RoutineColors.byIndex(routineCount) : 
-                selectedColorHex
+            // Use selected color for new routines, auto-assign if none selected
+            let finalColorHex: String
+            if routineId == nil {
+                // For new routines, use selected color or auto-assign
+                if selectedColorHex == RoutineColors.colorOptions[0].hex {
+                    finalColorHex = RoutineColors.byIndex(routineCount)
+                } else {
+                    finalColorHex = selectedColorHex
+                }
+            } else {
+                // For existing routines, keep current color
+                finalColorHex = selectedColorHex
+            }
                 
             let workout = Workout(
                 id: routineId ?? UUID().uuidString,
                 name: routineName.trimmingCharacters(in: .whitespacesAndNewlines),
                 userId: user.id,
-                exercises: selectedExercises,
+                exercises: selectedExercises.map { exercise in
+                    WorkoutExercise(exercise: exercise, sets: [])
+                },
                 createdAt: Date(),
-                colorHex: autoColorHex
+                colorHex: finalColorHex
             )
             
             if routineId != nil {
@@ -175,12 +240,40 @@ class CreateRoutineViewModel: ObservableObject {
         }
     }
     
-    func showUpgradeDialogAction() {
-        showUpgradeDialog = true
+    func showPremiumBenefitsAction() {
+        showPremiumBenefits = true
     }
     
-    func hideUpgradeDialog() {
-        showUpgradeDialog = false
+    func hidePremiumBenefits() {
+        showPremiumBenefits = false
+    }
+    
+    func checkForPendingExercise() {
+        print("🔍 checkForPendingExercise called")
+        let hasPending = ExerciseChannel.shared.hasPendingExercise()
+        print("🔍 Has pending exercise: \(hasPending)")
+        
+        if hasPending {
+            if let exercise = ExerciseChannel.shared.consumeExercise() {
+                print("📥 CreateRoutineViewModel: Processing pending exercise from channel: \(exercise.name)")
+                print("📥 Exercise ID: '\(exercise.id)'")
+                print("📥 Before adding - current exercises count: \(selectedExercises.count)")
+                addExercise(exercise)
+                print("📥 After adding - current exercises count: \(selectedExercises.count)")
+            } else {
+                print("⚠️ hasPendingExercise was true but consumeExercise returned nil")
+            }
+        } else {
+            print("🔍 No pending exercises found")
+        }
+    }
+    
+    func onAppear() {
+        print("👀 CreateRoutineViewModel: View appeared (instance: \(Unmanaged.passUnretained(self).toOpaque()))")
+        print("👀 Current state - routineName: '\(routineName)', selectedExercises: \(selectedExercises.count)")
+        print("👀 Exercise names: \(selectedExercises.map { $0.name })")
+        print("👀 Checking for pending exercises...")
+        checkForPendingExercise()
     }
     
     func refreshSubscriptionStatus() async {

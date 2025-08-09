@@ -2,7 +2,7 @@ import SwiftUI
 import FirebaseAuth
 
 struct ContentView: View {
-    @StateObject private var userPreferences = UserPreferences()
+    @EnvironmentObject private var userPreferences: UserPreferences
     @StateObject private var googleSignInHelper = GoogleSignInHelper()
     
     private var authRepository: AuthRepository {
@@ -14,7 +14,7 @@ struct ContentView: View {
     }
     
     private var exerciseRepository: ExerciseRepository {
-        ExerciseRepositoryImpl()
+        ExerciseRepositoryImpl(authRepository: authRepository)
     }
     
     private var workoutHistoryRepository: WorkoutHistoryRepository {

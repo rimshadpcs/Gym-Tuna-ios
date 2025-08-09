@@ -13,6 +13,11 @@ struct NavGraph: View {
     let userPreferences: UserPreferences
     
     @State private var currentRoute: String = Screen.auth.route
+    
+    // Keep CreateRoutineViewModel as state to prevent recreation
+    @State private var createRoutineViewModel: CreateRoutineViewModel?
+    @State private var currentRoutineId: String? = nil
+    @State private var isInCreateRoutineFlow: Bool = false
 
     init(authViewModel: AuthViewModel, authRepository: AuthRepository, workoutRepository: WorkoutRepository, exerciseRepository: ExerciseRepository, workoutHistoryRepository: WorkoutHistoryRepository, userPreferences: UserPreferences) {
         self.authRepository = authRepository
@@ -24,7 +29,8 @@ struct NavGraph: View {
         _homeViewModel = StateObject(wrappedValue: HomeViewModel(
             workoutRepository: workoutRepository,
             authRepository: authRepository,
-            workoutSessionManager: WorkoutSessionManager.shared
+            workoutSessionManager: WorkoutSessionManager.shared,
+            workoutHistoryRepository: workoutHistoryRepository
         ))
     }
     
@@ -153,23 +159,20 @@ struct NavGraph: View {
         let routeParameters = coordinator.getRouteParameters(coordinator.currentRoute)
         let routineId = routeParameters["routineId"]
         
-        return CreateRoutineView(
+        print("🔍 NavGraph: createRoutineScreenView - currentRoute: '\(coordinator.currentRoute)'")
+        print("🔍 NavGraph: routeParameters: \(routeParameters)")
+        print("🔍 NavGraph: extracted routineId: '\(routineId ?? "nil")'")
+        
+        return CreateRoutineViewContainer(
+            routineId: routineId,
+            createRoutineViewModel: $createRoutineViewModel,
+            currentRoutineId: $currentRoutineId,
+            isInCreateRoutineFlow: $isInCreateRoutineFlow,
             workoutRepository: workoutRepository,
             authRepository: authRepository,
             subscriptionRepository: SubscriptionRepositoryImpl(),
-            routineId: routineId,
-            onBack: {
-                coordinator.pop()
-            },
-            onRoutineCreated: {
-                coordinator.navigate(to: .home)
-            },
-            onAddExercise: {
-                coordinator.navigate(to: .exerciseSearch)
-            },
-            onNavigateToSubscription: {
-                coordinator.navigate(to: .subscription)
-            }
+            homeViewModel: homeViewModel,
+            coordinator: coordinator
         )
     }
     
@@ -320,6 +323,114 @@ struct NavGraph: View {
     }
 }
 
+
+// MARK: - CreateRoutineView Container
+struct CreateRoutineViewContainer: View {
+    let routineId: String?
+    @Binding var createRoutineViewModel: CreateRoutineViewModel?
+    @Binding var currentRoutineId: String?
+    @Binding var isInCreateRoutineFlow: Bool
+    
+    let workoutRepository: WorkoutRepository
+    let authRepository: AuthRepository
+    let subscriptionRepository: SubscriptionRepository
+    let homeViewModel: HomeViewModel
+    let coordinator: NavCoordinator
+    
+    var body: some View {
+        Group {
+            if let viewModel = createRoutineViewModel {
+                CreateRoutineView(
+                    workoutRepository: workoutRepository,
+                    authRepository: authRepository,
+                    subscriptionRepository: subscriptionRepository,
+                    routineId: routineId,
+                    existingViewModel: viewModel,
+                    onBack: {
+                        // Clear ViewModel and flow when navigating back
+                        print("🔙 NavGraph: User cancelled create routine, clearing ViewModel")
+                        createRoutineViewModel = nil
+                        currentRoutineId = nil
+                        isInCreateRoutineFlow = false
+                        
+                        // Refresh home data when going back
+                        Task {
+                            await homeViewModel.refreshData()
+                        }
+                        
+                        coordinator.pop()
+                    },
+                    onRoutineCreated: {
+                        // Clear ViewModel and flow after creation
+                        print("✅ NavGraph: Routine created successfully, clearing ViewModel")
+                        createRoutineViewModel = nil
+                        currentRoutineId = nil
+                        isInCreateRoutineFlow = false
+                        
+                        // Refresh home screen data before navigating back
+                        Task {
+                            print("🔄 NavGraph: Refreshing HomeViewModel after routine creation")
+                            await homeViewModel.refreshData()
+                        }
+                        
+                        coordinator.navigate(to: .home)
+                    },
+                    onAddExercise: {
+                        coordinator.navigate(to: .exerciseSearch)
+                    },
+                    onNavigateToSubscription: {
+                        coordinator.navigate(to: .subscription)
+                    }
+                )
+            } else {
+                // This should never happen, but provide a fallback
+                ProgressView("Initializing...")
+                    .onAppear {
+                        print("⚠️ NavGraph: ViewModel is nil, this should not happen!")
+                    }
+            }
+        }
+        .onAppear {
+            ensureViewModelExists()
+        }
+    }
+    
+    @discardableResult
+    private func ensureViewModelExists() -> Bool {
+        // Only create new ViewModel if we're not in a flow or routineId changed
+        let shouldCreateNewViewModel = createRoutineViewModel == nil || 
+                                     (!isInCreateRoutineFlow && currentRoutineId != routineId)
+        
+        print("🔍 NavGraph: ensureViewModelExists called")
+        print("🔍 NavGraph: routineId parameter: '\(routineId ?? "nil")'")
+        print("🔍 NavGraph: currentRoutineId: '\(currentRoutineId ?? "nil")'")
+        print("🔍 NavGraph: isInCreateRoutineFlow: \(isInCreateRoutineFlow)")
+        print("🔍 NavGraph: createRoutineViewModel exists: \(createRoutineViewModel != nil)")
+        print("🔍 NavGraph: shouldCreateNewViewModel: \(shouldCreateNewViewModel)")
+        
+        if shouldCreateNewViewModel {
+            print("🏗️ NavGraph: Creating/updating CreateRoutineViewModel for routineId: \(routineId ?? "new")")
+            if let existing = createRoutineViewModel {
+                print("🏗️ NavGraph: Previous ViewModel state - name: '\(existing.routineName)', exercises: \(existing.selectedExercises.count)")
+            }
+            createRoutineViewModel = CreateRoutineViewModel(
+                workoutRepository: workoutRepository,
+                authRepository: authRepository,
+                subscriptionRepository: subscriptionRepository,
+                routineId: routineId
+            )
+            currentRoutineId = routineId
+            isInCreateRoutineFlow = true
+            print("🏗️ NavGraph: New ViewModel created and flow started")
+        } else {
+            print("🔄 NavGraph: Reusing existing ViewModel - name: '\(createRoutineViewModel?.routineName ?? "nil")', exercises: \(createRoutineViewModel?.selectedExercises.count ?? 0)")
+            // Ensure we're marked as in flow
+            isInCreateRoutineFlow = true
+        }
+        
+        return createRoutineViewModel != nil
+    }
+}
 
 // MARK: - Placeholder View for unimplemented screens
 struct PlaceholderView: View {
