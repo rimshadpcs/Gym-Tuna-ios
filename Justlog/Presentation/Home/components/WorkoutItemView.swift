@@ -30,10 +30,17 @@ struct WorkoutItemView: View {
                             .vagFont(size: 15, weight: .medium)
                             .foregroundColor(themeManager?.colors.onSurface ?? LightThemeColors.onSurface)
                         
-                        // Small colored dot like in original
-                        Circle()
-                            .fill(workoutColor)
-                            .frame(width: 8, height: 8)
+                        // Routine color indicator - matching routine preview style
+                        if let colorHex = workout.colorHex,
+                           let routineColor = Color(hex: colorHex) {
+                            Circle()
+                                .fill(routineColor.opacity(0.45))
+                                .overlay(
+                                    Circle()
+                                        .stroke(routineColor, lineWidth: 1)
+                                )
+                                .frame(width: 16, height: 16)
+                        }
                     }
                     
                     Text("\(workout.exercises.count) exercise\(workout.exercises.count != 1 ? "s" : "")")
@@ -110,13 +117,5 @@ struct WorkoutItemView: View {
     // MARK: - Computed Properties
     private var isDarkTheme: Bool {
         themeManager?.currentTheme == .dark
-    }
-    
-    private var workoutColor: Color {
-        if let colorHex = workout.colorHex {
-            return Color(hex: colorHex) ?? (themeManager?.colors.primary ?? LightThemeColors.primary)
-        } else {
-            return themeManager?.colors.primary ?? LightThemeColors.primary
-        }
     }
 }

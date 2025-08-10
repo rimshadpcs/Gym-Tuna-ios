@@ -34,7 +34,8 @@ class AuthViewModel: ObservableObject {
             
             // Set user properties in analytics
             if let user = await authRepository.getCurrentUser() {
-                // analyticsManager.setUserId(user.id)
+                AnalyticsManager.shared.setUserId(user.id)
+                AnalyticsManager.shared.logUserLogin(method: "google")
                 setInitialUserProperties()
             }
             
@@ -155,7 +156,13 @@ class AuthViewModel: ObservableObject {
                 let distanceUnit = userPreferences.distanceUnit
                 let theme = userPreferences.appTheme
                 
-                // analyticsManager.setUserProperties(...) - implement when needed
+                // Set user properties for analytics segmentation
+                AnalyticsManager.shared.setUserProperties(
+                    isPremium: false, // We'll update this when we get subscription status
+                    preferredTheme: theme.rawValue,
+                    preferredWeightUnit: weightUnit.rawValue,
+                    preferredDistanceUnit: distanceUnit.rawValue
+                )
                 print("\(logger): Set user properties - theme: \(theme), weight: \(weightUnit), distance: \(distanceUnit)")
                 
             } catch {

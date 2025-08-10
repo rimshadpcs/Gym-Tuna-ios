@@ -64,6 +64,7 @@ struct RoutinePreviewView: View {
         }
         .navigationBarHidden(true)
         .onAppear {
+            AnalyticsManager.shared.logScreenView(screenName: "RoutinePreview")
             viewModel.loadRoutine(routineId)
         }
     }

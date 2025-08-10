@@ -135,6 +135,9 @@ struct WorkoutScreen: View {
         .background(themeManager?.colors.background ?? LightThemeColors.background)
         .navigationBarHidden(true)
         .onAppear {
+            // Analytics: Log screen view
+            AnalyticsManager.shared.logScreenView(screenName: "Workout")
+            
             // Initialize workout FIRST
             initializeWorkout()
             

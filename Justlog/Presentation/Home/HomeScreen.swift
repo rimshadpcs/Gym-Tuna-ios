@@ -191,6 +191,9 @@ struct HomeScreen: View {
         } message: {
             Text(viewModel.errorMessage ?? "")
         }
+        .onAppear {
+            AnalyticsManager.shared.logScreenView(screenName: "Home")
+        }
     }
     
     // MARK: - EmptyRoutinesState Component

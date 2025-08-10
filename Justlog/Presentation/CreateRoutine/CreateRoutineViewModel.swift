@@ -225,6 +225,12 @@ class CreateRoutineViewModel: ObservableObject {
                 try await workoutRepository.createWorkout(workout)
                 print("Created new routine: \(routineName)")
                 
+                // Analytics: Log routine created
+                AnalyticsManager.shared.logRoutineCreated(
+                    routineName: routineName,
+                    exerciseCount: selectedExercises.count
+                )
+                
                 // Update routine count after successful creation
                 routineCount += 1
             }

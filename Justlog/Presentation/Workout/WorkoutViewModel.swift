@@ -255,6 +255,12 @@ class WorkoutViewModel: ObservableObject {
                     exercises: basicWorkoutExercises
                 )
                 
+                // Analytics: Log workout started
+                AnalyticsManager.shared.logRoutineWorkoutStarted(
+                    routineName: routine.name,
+                    exerciseCount: routine.exercises.count
+                )
+                
                 // Load historical data in background
                 await loadHistoricalDataInBackground(routine.exercises.map { $0.exercise })
                 
@@ -291,6 +297,9 @@ class WorkoutViewModel: ObservableObject {
             routineName: workoutName,
             exercises: []
         )
+        
+        // Analytics: Log quick workout created
+        AnalyticsManager.shared.logQuickWorkoutCreated()
         
         isInitialized = true
         print("✅ Quick workout initialized: \(workoutName)")
@@ -799,7 +808,18 @@ class WorkoutViewModel: ObservableObject {
                 
                 // Analytics: Log workout completed
                 let workoutDurationMinutes = Int((history.endTime.timeIntervalSince1970 - history.startTime.timeIntervalSince1970) / 60)
-                print("📊 Workout completed - Duration: \(workoutDurationMinutes) mins, Sets: \(history.totalSets), Exercises: \(completedExercises.count), Volume: \(history.totalVolume), Routine-based: \(currentRoutineId != nil)")
+                let isRoutineBased = currentRoutineId != nil
+                
+                AnalyticsManager.shared.logWorkoutCompleted(
+                    workoutDurationMinutes: workoutDurationMinutes,
+                    totalSets: history.totalSets,
+                    totalExercises: completedExercises.count,
+                    isRoutineBased: isRoutineBased,
+                    totalVolume: history.totalVolume,
+                    weightUnit: weightUnit.rawValue
+                )
+                
+                print("📊 Workout completed - Duration: \(workoutDurationMinutes) mins, Sets: \(history.totalSets), Exercises: \(completedExercises.count), Volume: \(history.totalVolume), Routine-based: \(isRoutineBased)")
                 
                 // Update routine last performed
                 if let routineId = currentRoutineId {
@@ -836,6 +856,13 @@ class WorkoutViewModel: ObservableObject {
             let completedSetsCount = exercises.flatMap { $0.sets }.count { $0.isCompleted }
             let totalPlannedSets = exercises.flatMap { $0.sets }.count
             let isRoutineBased = currentRoutineId != nil
+            
+            AnalyticsManager.shared.logWorkoutAbandoned(
+                workoutDurationMinutes: workoutDuration,
+                completedSets: completedSetsCount,
+                totalPlannedSets: totalPlannedSets,
+                isRoutineBased: isRoutineBased
+            )
             
             print("📊 Workout abandoned - Duration: \(workoutDuration) mins, Completed: \(completedSetsCount)/\(totalPlannedSets) sets, Routine-based: \(isRoutineBased)")
         }
