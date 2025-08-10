@@ -90,6 +90,11 @@ struct ExerciseCard: View {
             }
         }
         .background(backgroundColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(themeManager?.colors.outline ?? LightThemeColors.outline, lineWidth: 1)
+        )
+        .cornerRadius(12)
         .onAppear {
             notes = workoutExercise.notes
         }
@@ -118,7 +123,7 @@ struct ExerciseCard: View {
     // MARK: - Computed Properties
     
     private var backgroundColor: Color {
-        themeManager?.colors.background ?? .white // Match screen background
+        themeManager?.colors.surface ?? LightThemeColors.surface // Use surface color for cards
     }
     
     private var onSurfaceColor: Color {

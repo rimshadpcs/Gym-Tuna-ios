@@ -95,7 +95,7 @@ struct SettingsView: View {
                                 SettingsItem(
                                     iconName: isDarkTheme ? "info_dark" : "info",
                                     title: "About",
-                                    subtitle: "2.0.0",
+                                    subtitle: "1.0.0",
                                     onClick: {
                                         if let url = URL(string: "https://justlog.app/") {
                                             UIApplication.shared.open(url)
