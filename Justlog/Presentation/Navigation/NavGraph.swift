@@ -358,6 +358,27 @@ struct NavGraph: View {
         workoutScreenView
     }
     
+    private var routinePreviewScreenView: some View {
+        Group {
+            if let routineId = routinePreviewId {
+                RoutinePreviewView(
+                    routineId: routineId,
+                    workoutRepository: workoutRepository,
+                    onBack: {
+                        routinePreviewId = nil
+                        coordinator.pop()
+                    },
+                    onStartWorkout: { workoutId in
+                        // Navigate to workout screen with the routine
+                        coordinator.navigateToWorkout?(workoutId, nil)
+                    }
+                )
+            } else {
+                PlaceholderView(screenName: "Routine Preview", coordinator: coordinator)
+            }
+        }
+    }
+    
     private func handleAuthStateChange(_ authState: AuthState) {
         switch authState {
         case .success:
@@ -487,28 +508,6 @@ struct CreateRoutineViewContainer: View {
         }
         
         return createRoutineViewModel != nil
-    }
-    
-    // MARK: - Routine Preview Screen View
-    private var routinePreviewScreenView: some View {
-        Group {
-            if let routineId = routinePreviewId {
-                RoutinePreviewView(
-                    routineId: routineId,
-                    workoutRepository: workoutRepository,
-                    onBack: {
-                        routinePreviewId = nil
-                        coordinator.pop()
-                    },
-                    onStartWorkout: { workoutId in
-                        // Navigate to workout screen with the routine
-                        coordinator.navigateToWorkout?(workoutId, nil)
-                    }
-                )
-            } else {
-                PlaceholderView(screenName: "Routine Preview", coordinator: coordinator)
-            }
-        }
     }
 }
 
