@@ -20,6 +20,7 @@ struct NavGraph: View {
     @State private var createRoutineViewModel: CreateRoutineViewModel?
     @State private var currentRoutineId: String? = nil
     @State private var isInCreateRoutineFlow: Bool = false
+    @State private var routinePreviewId: String? = nil
 
     init(authViewModel: AuthViewModel, authRepository: AuthRepository, workoutRepository: WorkoutRepository, exerciseRepository: ExerciseRepository, workoutHistoryRepository: WorkoutHistoryRepository, counterRepository: CounterRepository, subscriptionRepository: SubscriptionRepository, userPreferences: UserPreferences) {
         self.authRepository = authRepository
@@ -91,7 +92,7 @@ struct NavGraph: View {
         case .createExercise:
             createExerciseScreenView
         case .routinePreview:
-            PlaceholderView(screenName: "Routine Preview", coordinator: coordinator)
+            routinePreviewScreenView
         case .workout:
             workoutScreenView
         }
@@ -155,6 +156,7 @@ struct NavGraph: View {
                 coordinator.navigate(to: .counter)
             },
             onNavigateToRoutinePreview: { routineId in
+                routinePreviewId = routineId
                 coordinator.navigate(to: .routinePreview)
             }
         )
@@ -485,6 +487,28 @@ struct CreateRoutineViewContainer: View {
         }
         
         return createRoutineViewModel != nil
+    }
+    
+    // MARK: - Routine Preview Screen View
+    private var routinePreviewScreenView: some View {
+        Group {
+            if let routineId = routinePreviewId {
+                RoutinePreviewView(
+                    routineId: routineId,
+                    workoutRepository: workoutRepository,
+                    onBack: {
+                        routinePreviewId = nil
+                        coordinator.pop()
+                    },
+                    onStartWorkout: { workoutId in
+                        // Navigate to workout screen with the routine
+                        coordinator.navigateToWorkout?(workoutId, nil)
+                    }
+                )
+            } else {
+                PlaceholderView(screenName: "Routine Preview", coordinator: coordinator)
+            }
+        }
     }
 }
 
