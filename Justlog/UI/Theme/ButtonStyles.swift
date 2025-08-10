@@ -186,3 +186,68 @@ extension ButtonStyle where Self == MaterialOutlinedButtonStyle {
         MaterialOutlinedButtonStyle(height: height)
     }
 }
+
+// MARK: - Material Text Field Style
+
+@MainActor
+struct MaterialTextFieldStyle: TextFieldStyle {
+    let themeManager: ThemeManager?
+    let placeholder: String
+    
+    init(themeManager: ThemeManager?, placeholder: String = "") {
+        self.themeManager = themeManager
+        self.placeholder = placeholder
+    }
+    
+    func _body(configuration: TextField<Self._Label>) -> some View {
+        configuration
+            .padding(.horizontal, MaterialSpacing.md)
+            .padding(.vertical, MaterialSpacing.md)
+            .font(.system(size: 16))
+            .foregroundColor(themeManager?.colors.onSurface ?? LightThemeColors.onSurface)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(themeManager?.colors.surface ?? LightThemeColors.surface)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(themeManager?.colors.outline ?? LightThemeColors.outline, lineWidth: 1)
+                    )
+            )
+    }
+}
+
+// MARK: - Rounded Rectangle Shape
+
+struct RoundedRectangleShape: Shape {
+    let radius: CGFloat
+    
+    func path(in rect: CGRect) -> Path {
+        Path { path in
+            let cornerRadius = min(radius, min(rect.width, rect.height) / 2)
+            path.addRoundedRect(in: rect, cornerSize: CGSize(width: cornerRadius, height: cornerRadius))
+        }
+    }
+}
+
+struct RoundedCornerShape: Shape {
+    let radius: CGFloat
+    
+    func path(in rect: CGRect) -> Path {
+        Path { path in
+            let cornerRadius = min(radius, min(rect.width, rect.height) / 2)
+            path.addRoundedRect(in: rect, cornerSize: CGSize(width: cornerRadius, height: cornerRadius))
+        }
+    }
+}
+
+extension Shape where Self == RoundedRectangleShape {
+    static func roundedRectangle(radius: CGFloat) -> RoundedRectangleShape {
+        RoundedRectangleShape(radius: radius)
+    }
+}
+
+extension Shape where Self == RoundedCornerShape {
+    static func roundedCorner(radius: CGFloat) -> RoundedCornerShape {
+        RoundedCornerShape(radius: radius)
+    }
+}

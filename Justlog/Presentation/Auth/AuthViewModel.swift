@@ -10,12 +10,14 @@ class AuthViewModel: ObservableObject {
     private let authRepository: AuthRepository
     private let googleSignInHelper: GoogleSignInHelper
     private let userPreferences: UserPreferences
+    private let dependencyContainer: DependencyContainer
     private let logger = "AuthViewModel"
     
-    init(authRepository: AuthRepository, googleSignInHelper: GoogleSignInHelper, userPreferences: UserPreferences) {
+    init(authRepository: AuthRepository, googleSignInHelper: GoogleSignInHelper, userPreferences: UserPreferences, dependencyContainer: DependencyContainer = DependencyContainer.shared) {
         self.authRepository = authRepository
         self.googleSignInHelper = googleSignInHelper
         self.userPreferences = userPreferences
+        self.dependencyContainer = dependencyContainer
         
         checkAuthState()
     }
@@ -54,6 +56,7 @@ class AuthViewModel: ObservableObject {
         case .success:
             print("\(logger): 🗑️ Account deleted successfully")
             await userPreferences.clearPreferences()
+            dependencyContainer.clearAllCaches()
             authState = .initial
         case .failure(let error):
             print("\(logger): ❌ Account deletion failed: \(error)")
@@ -106,6 +109,9 @@ class AuthViewModel: ObservableObject {
             print("\(logger): 🚪 Clearing user preferences...")
             await userPreferences.clearPreferences()
             
+            print("\(logger): 🚪 Clearing repository caches...")
+            dependencyContainer.clearAllCaches()
+            
             // Small delay to ensure cleanup is complete
             try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
             
@@ -127,6 +133,7 @@ class AuthViewModel: ObservableObject {
             print("\(logger): 🔇 Silent sign out for cleanup...")
             try await authRepository.signOut()
             await userPreferences.clearPreferences()
+            dependencyContainer.clearAllCaches()
             print("\(logger): 🔇 Silent sign out completed")
         } catch {
             print("\(logger): ❌ Error during silent sign out: \(error)")

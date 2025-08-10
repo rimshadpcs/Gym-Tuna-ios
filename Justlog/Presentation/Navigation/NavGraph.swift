@@ -10,6 +10,8 @@ struct NavGraph: View {
     let workoutRepository: WorkoutRepository
     let exerciseRepository: ExerciseRepository
     let workoutHistoryRepository: WorkoutHistoryRepository
+    let counterRepository: CounterRepository
+    let subscriptionRepository: SubscriptionRepository
     let userPreferences: UserPreferences
     
     @State private var currentRoute: String = Screen.auth.route
@@ -19,18 +21,21 @@ struct NavGraph: View {
     @State private var currentRoutineId: String? = nil
     @State private var isInCreateRoutineFlow: Bool = false
 
-    init(authViewModel: AuthViewModel, authRepository: AuthRepository, workoutRepository: WorkoutRepository, exerciseRepository: ExerciseRepository, workoutHistoryRepository: WorkoutHistoryRepository, userPreferences: UserPreferences) {
+    init(authViewModel: AuthViewModel, authRepository: AuthRepository, workoutRepository: WorkoutRepository, exerciseRepository: ExerciseRepository, workoutHistoryRepository: WorkoutHistoryRepository, counterRepository: CounterRepository, subscriptionRepository: SubscriptionRepository, userPreferences: UserPreferences) {
         self.authRepository = authRepository
         self.workoutRepository = workoutRepository
         self.exerciseRepository = exerciseRepository
         self.workoutHistoryRepository = workoutHistoryRepository
+        self.counterRepository = counterRepository
+        self.subscriptionRepository = subscriptionRepository
         self.userPreferences = userPreferences
         _authViewModel = ObservedObject(wrappedValue: authViewModel)
         _homeViewModel = StateObject(wrappedValue: HomeViewModel(
             workoutRepository: workoutRepository,
             authRepository: authRepository,
             workoutSessionManager: WorkoutSessionManager.shared,
-            workoutHistoryRepository: workoutHistoryRepository
+            workoutHistoryRepository: workoutHistoryRepository,
+            subscriptionRepository: subscriptionRepository
         ))
     }
     
@@ -78,13 +83,13 @@ struct NavGraph: View {
         case .settings:
             settingsScreenView
         case .profile:
-            PlaceholderView(screenName: "Profile", coordinator: coordinator)
+            profileScreenView
         case .subscription:
             subscriptionScreenView
         case .counter:
             counterScreenView
         case .createExercise:
-            PlaceholderView(screenName: "Create Exercise", coordinator: coordinator)
+            createExerciseScreenView
         case .routinePreview:
             PlaceholderView(screenName: "Routine Preview", coordinator: coordinator)
         case .workout:
@@ -170,7 +175,7 @@ struct NavGraph: View {
             isInCreateRoutineFlow: $isInCreateRoutineFlow,
             workoutRepository: workoutRepository,
             authRepository: authRepository,
-            subscriptionRepository: SubscriptionRepositoryImpl(),
+            subscriptionRepository: subscriptionRepository,
             homeViewModel: homeViewModel,
             coordinator: coordinator
         )
@@ -203,7 +208,7 @@ struct NavGraph: View {
     private var settingsScreenView: some View {
         SettingsView(
             authRepository: authRepository,
-            subscriptionRepository: SubscriptionRepositoryImpl(),
+            subscriptionRepository: subscriptionRepository,
             userPreferences: userPreferences,
             onBack: {
                 coordinator.pop()
@@ -217,10 +222,34 @@ struct NavGraph: View {
         )
     }
     
+    private var profileScreenView: some View {
+        ProfileView(
+            authRepository: authRepository,
+            subscriptionRepository: subscriptionRepository,
+            userPreferences: userPreferences,
+            onBack: {
+                coordinator.pop()
+            },
+            onSignOut: {
+                Task {
+                    await authViewModel.signOut()
+                }
+                coordinator.navigate(to: .auth)
+            },
+            onDeleteAccount: {
+                Task {
+                    await authViewModel.deleteAccount()
+                }
+                coordinator.navigate(to: .auth)
+            }
+        )
+        .navigationBarHidden(true)
+    }
+    
     private var counterScreenView: some View {
         CounterView(
-            counterRepository: CounterRepositoryImpl(),
-            subscriptionRepository: SubscriptionRepositoryImpl(),
+            counterRepository: counterRepository,
+            subscriptionRepository: subscriptionRepository,
             authRepository: authRepository,
             onNavigateToSubscription: {
                 coordinator.navigate(to: .subscription)
@@ -250,7 +279,7 @@ struct NavGraph: View {
     
     private var subscriptionScreenView: some View {
         SubscriptionView(
-            subscriptionRepository: SubscriptionRepositoryImpl(),
+            subscriptionRepository: subscriptionRepository,
             onBack: { coordinator.pop() }
         )
         .navigationBarHidden(true)
@@ -302,6 +331,26 @@ struct NavGraph: View {
         }
     }
     
+    private var createExerciseScreenView: some View {
+        CreateExerciseScreen(
+            workoutRepository: workoutRepository,
+            authRepository: authRepository,
+            subscriptionRepository: subscriptionRepository,
+            onBack: {
+                coordinator.pop()
+            },
+            onSave: { exercise in
+                // Exercise was successfully created, send it through ExerciseChannel
+                ExerciseChannel.shared.sendExercise(exercise)
+                coordinator.pop()
+            },
+            onNavigateToPremiumBenefits: {
+                coordinator.navigate(to: .subscription)
+            }
+        )
+        .navigationBarHidden(true)
+    }
+    
     private var activeWorkoutScreenView: some View {
         // Active workout is the same as workout screen, just different navigation flow
         workoutScreenView
@@ -313,10 +362,17 @@ struct NavGraph: View {
             if coordinator.currentScreen != .home {
                 coordinator.popToRoot()
             }
+            // Refresh HomeViewModel data when user successfully logs in
+            Task {
+                await homeViewModel.loadInitialData()
+            }
         case .initial, .error:
             if coordinator.currentScreen != .auth {
                 coordinator.navigate(to: .auth)
             }
+            // Clear HomeViewModel data when user logs out to prevent showing old data
+            homeViewModel.workouts = []
+            homeViewModel.currentUser = nil
         case .loading:
             break // Stay on current screen
         }

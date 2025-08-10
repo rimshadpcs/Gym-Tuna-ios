@@ -397,6 +397,31 @@ class SubscriptionRepositoryImpl: SubscriptionRepository {
     }
     
     // MARK: - Cleanup
+    
+    func onCleared() {
+        clearCache()
+    }
+    
+    func clearCache() {
+        logger.info("🧹 Clearing subscription repository cache and UserDefaults")
+        
+        // Clear UserDefaults
+        userDefaults.removeObject(forKey: Self.KEY_SUBSCRIPTION_TIER)
+        userDefaults.removeObject(forKey: Self.KEY_IS_ACTIVE)
+        userDefaults.removeObject(forKey: Self.KEY_PURCHASE_DATE)
+        userDefaults.removeObject(forKey: Self.KEY_EXPIRATION_DATE)
+        userDefaults.removeObject(forKey: Self.KEY_PURCHASE_TOKEN)
+        
+        // Reset to free subscription
+        let freeSubscription = UserSubscription(
+            tier: .free,
+            isActive: false,
+            purchaseDate: nil,
+            expirationDate: nil
+        )
+        subscriptionSubject.send(freeSubscription)
+    }
+    
     deinit {
         updateListenerTask?.cancel()
     }

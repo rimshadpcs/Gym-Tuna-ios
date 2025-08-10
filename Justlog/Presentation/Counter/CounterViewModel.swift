@@ -62,22 +62,10 @@ class CounterViewModel: ObservableObject {
                 receiveValue: { [weak self] firebaseCounters in
                     let processedCounters = firebaseCounters.map { firebaseCounter in
                         if self?.activelyUpdatingCounters.contains(firebaseCounter.id) == true {
-                            // Keep local optimistic version
+                            // Keep local optimistic version for currently updating counters
                             return self?.allCounters.first { $0.id == firebaseCounter.id } ?? firebaseCounter
                         } else {
-                            // Check for daily reset
-                            let currentDate = self?.getCurrentDateString() ?? ""
-                            if firebaseCounter.lastResetDate != currentDate && firebaseCounter.todayCount > 0 {
-                                return Counter(
-                                    id: firebaseCounter.id,
-                                    name: firebaseCounter.name,
-                                    userId: firebaseCounter.userId,
-                                    currentCount: firebaseCounter.currentCount,
-                                    todayCount: 0,
-                                    createdAt: firebaseCounter.createdAt,
-                                    lastResetDate: currentDate
-                                )
-                            }
+                            // Repository already handles daily reset, just use the counter as-is
                             return firebaseCounter
                         }
                     }
@@ -164,10 +152,10 @@ class CounterViewModel: ObservableObject {
         let currentPending = pendingChanges[counterId] ?? 0
         pendingChanges[counterId] = currentPending + 1
         
-        // Debounced sync
+        // Debounced sync - wait longer for better UX
         updateTasks[counterId]?.cancel()
         updateTasks[counterId] = Task {
-            try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
+            try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 seconds
             await syncPendingChanges(counterId)
         }
     }
@@ -186,10 +174,10 @@ class CounterViewModel: ObservableObject {
         let currentPending = pendingChanges[counterId] ?? 0
         pendingChanges[counterId] = currentPending - 1
         
-        // Debounced sync
+        // Debounced sync - wait longer for better UX
         updateTasks[counterId]?.cancel()
         updateTasks[counterId] = Task {
-            try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
+            try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 seconds
             await syncPendingChanges(counterId)
         }
     }
@@ -242,7 +230,7 @@ class CounterViewModel: ObservableObject {
                     try await counterRepository.addCounterEntry(entry)
                 }
                 
-                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+                try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
                 activelyUpdatingCounters.remove(counterId)
             } catch {
                 errorMessage = "Failed to update counter: \\(error.localizedDescription)"
@@ -293,9 +281,7 @@ class CounterViewModel: ObservableObject {
         }
     }
     
-    func hasPendingChanges(_ counterId: String) -> Bool {
-        return activelyUpdatingCounters.contains(counterId)
-    }
+    // Removed hasPendingChanges method - sync happens silently without UI feedback
     
     func resetPremiumBenefitsNavigation() {
         showPremiumBenefits = false

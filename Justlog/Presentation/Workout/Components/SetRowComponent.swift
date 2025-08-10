@@ -85,35 +85,35 @@ struct SetRowComponent: View {
     }
     
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 6) { // Optimized spacing for perfect alignment
             // Set number or trophy
             setNumberView
-                .frame(width: 40, alignment: .center) // Reduced by 20%: 40 -> 32
+                .frame(width: 40, alignment: .center)
             
             // Previous performance
             previousPerformanceView
-                .frame(width: 50, alignment: .center) // Reduced by 20%: 50 -> 40
+                .frame(width: 50, alignment: .center)
             
             // Best performance
             bestPerformanceView
-                .frame(width: 40, alignment: .center) // Reduced by 20%: 50 -> 40
+                .frame(width: 40, alignment: .center)
             
-            // Input fields - constrained width
+            // Input fields - optimized for proper background containment
             inputFieldsView
-                .frame(maxWidth: 128) // Reduced by 20%: 160 -> 128
+                .frame(maxWidth: 165) // Adjusted for proper containment within background
             
             // Completion checkbox - fixed position
             completionCheckboxView
-                .frame(width: 22, height: 18) // Reduced by 20%: 28 -> 22
+                .frame(width: 24, height: 24) // Slightly larger for better touch target
                 .onAppear { print("🔲 Checkbox appeared for set \(setNumber), completed: \(set.isCompleted)") }
         }
-        .padding(.horizontal, 30) // Reduced by 20%: 24 -> 20
-        .frame(height: 42) // Reduced by 20%: 56 -> 45
+        .padding(.horizontal, 12) // Increased to properly contain expanded input fields and checkbox
+        .frame(height: 50) // Increased height for better usability
         .background(backgroundColorForRow)
-        .cornerRadius(8) // Reduced by 20%: 8 -> 6
+        .cornerRadius(12) // Slightly more rounded for modern look
         .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(rowBorderColor, lineWidth: isSessionBestPR ? 3 : 0) // Increased for visibility
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(rowBorderColor, lineWidth: isSessionBestPR ? 2 : 0) // Cleaner stroke
         )
         .offset(x: dragOffset)
         .background(
@@ -134,7 +134,7 @@ struct SetRowComponent: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.red)
-            .cornerRadius(8)
+            .cornerRadius(12)
         )
         .gesture(
             DragGesture()
@@ -229,17 +229,17 @@ struct SetRowComponent: View {
         if showTimeField { inputFieldCount += 1 }
         if showRepsField { inputFieldCount += 1 }
         
-        let availableWidth: CGFloat = 120 // Reduced by 20%: 150 -> 120
-        let fieldSpacing: CGFloat = 2 // Keep spacing same
+        let availableWidth: CGFloat = 157 // Adjusted for proper background containment
+        let fieldSpacing: CGFloat = 6 // More spacing for better visual separation
         let totalSpacing = fieldSpacing * CGFloat(max(0, inputFieldCount - 1))
         let baseFieldWidth = (availableWidth - totalSpacing) / CGFloat(max(1, inputFieldCount))
         
-        let timeFieldWidth: CGFloat = inputFieldCount == 1 ? 64 : 48 // Reduced by 20%: 80->64, 60->48
+        let timeFieldWidth: CGFloat = inputFieldCount == 1 ? 80 : 65 // Larger fields with more space available
         let standardFieldWidth: CGFloat = (showTimeField && inputFieldCount > 1) ?
             (availableWidth - timeFieldWidth - totalSpacing) / CGFloat(max(1, inputFieldCount - 1)) :
             baseFieldWidth
             
-        return HStack(spacing: 2) { // Reduced spacing between input fields
+        return HStack(spacing: 6) { // Better spacing with more room available
             if showWeightField {
                 TextField((weightUnit == .kg) ? "kg" : "lb", text: $weightText)
                     .keyboardType(.numbersAndPunctuation)
@@ -263,12 +263,12 @@ struct SetRowComponent: View {
                     .onSubmit {
                         handleDonePressed()
                     }
-                    .frame(width: standardFieldWidth, height: 26) // Reduced by 20%: 32 -> 26
+                    .frame(width: standardFieldWidth, height: 32) // Better height for touch target
                     .background(
-                        RoundedRectangle(cornerRadius: 4)
+                        RoundedRectangle(cornerRadius: 6)
                             .fill(inputBackgroundColor)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 4)
+                                RoundedRectangle(cornerRadius: 6)
                                     .stroke(inputBorderColor, lineWidth: 1)
                             )
                     )
@@ -297,12 +297,12 @@ struct SetRowComponent: View {
                     .onSubmit {
                         handleDonePressed()
                     }
-                    .frame(width: standardFieldWidth, height: 26) // Reduced by 20%: 32 -> 26
+                    .frame(width: standardFieldWidth, height: 32) // Better height for touch target
                     .background(
-                        RoundedRectangle(cornerRadius: 4)
+                        RoundedRectangle(cornerRadius: 6)
                             .fill(inputBackgroundColor)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 4)
+                                RoundedRectangle(cornerRadius: 6)
                                     .stroke(inputBorderColor, lineWidth: 1)
                             )
                     )
@@ -315,6 +315,9 @@ struct SetRowComponent: View {
                     onStartStopTimer: {
                         if isTimerRunning {
                             isTimerRunning = false
+                            // Update the parent with final time
+                            let finalTime = Int(timeText) ?? 0
+                            onUpdateTime(finalTime)
                         } else {
                             timerValue = Int(timeText) ?? 0
                             isTimerRunning = true
@@ -323,7 +326,11 @@ struct SetRowComponent: View {
                     onResetTimer: {
                         timerValue = 0
                         timeText = "0"
+                        isTimerRunning = false
                         onUpdateTime(0)
+                    },
+                    onTimeUpdate: { newTime in
+                        onUpdateTime(newTime)
                     },
                     previousTime: set.previousTime.map { Double($0) },
                     width: timeFieldWidth,
@@ -357,12 +364,12 @@ struct SetRowComponent: View {
                     .onSubmit {
                         handleDonePressed()
                     }
-                    .frame(width: standardFieldWidth, height: 26) // Reduced by 20%: 32 -> 26
+                    .frame(width: standardFieldWidth, height: 32) // Better height for touch target
                     .background(
-                        RoundedRectangle(cornerRadius: 4)
+                        RoundedRectangle(cornerRadius: 6)
                             .fill(inputBackgroundColor)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 4)
+                                RoundedRectangle(cornerRadius: 6)
                                     .stroke(inputBorderColor, lineWidth: 1)
                             )
                     )
@@ -384,7 +391,7 @@ struct SetRowComponent: View {
             checkmarkColor: .white,
             isDarkTheme: isDarkTheme
         )
-        .frame(width: 22, height: 22)
+        .frame(width: 24, height: 24)
     }
     
     // MARK: - Helper Methods
@@ -697,6 +704,7 @@ struct TimeInputField: View {
     @Binding var isTimerRunning: Bool
     let onStartStopTimer: () -> Void
     let onResetTimer: () -> Void
+    let onTimeUpdate: ((Int) -> Void)?
     let previousTime: Double?
     let width: CGFloat
     let bgColor: Color
@@ -706,6 +714,8 @@ struct TimeInputField: View {
     let isDarkTheme: Bool
     
     @Environment(\.themeManager) private var optionalThemeManager
+    @State private var timerValue: Int = 0
+    @State private var timer: Timer?
     
     private var themeManager: ThemeManager {
         optionalThemeManager ?? ThemeManager(userPreferences: UserPreferences.shared)
@@ -751,16 +761,52 @@ struct TimeInputField: View {
             }
         }
         .frame(width: width, height: 32)
+        .onAppear {
+            timerValue = Int(time) ?? 0
+        }
+        .onChange(of: isTimerRunning) { running in
+            if running {
+                // When starting, sync with current binding value
+                timerValue = Int(time) ?? 0
+                startTimer()
+            } else {
+                // When stopping, let the binding handle display
+                stopTimer()
+            }
+        }
+        .onDisappear {
+            stopTimer()
+        }
+    }
+    
+    private func startTimer() {
+        stopTimer() // Stop any existing timer
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            timerValue += 1
+            time = String(timerValue)
+            onTimeUpdate?(timerValue)
+        }
+    }
+    
+    private func stopTimer() {
+        timer?.invalidate()
+        timer = nil
     }
     
     private var formattedTime: String {
-        let seconds = Int(time) ?? 0
-        if seconds == 0 && previousTime != nil {
-            return DistanceConverter.formatTime(Int(previousTime!))
-        } else if seconds == 0 {
-            return "--:--"
+        if isTimerRunning {
+            // When running, use internal timerValue (counts up)
+            return DistanceConverter.formatTime(timerValue)
+        } else {
+            // When stopped, always use the binding value (allows immediate reset)
+            let seconds = Int(time) ?? 0
+            if seconds == 0 && previousTime != nil {
+                return DistanceConverter.formatTime(Int(previousTime!))
+            } else if seconds == 0 {
+                return "--:--"
+            }
+            return DistanceConverter.formatTime(seconds)
         }
-        return DistanceConverter.formatTime(seconds)
     }
 }
 

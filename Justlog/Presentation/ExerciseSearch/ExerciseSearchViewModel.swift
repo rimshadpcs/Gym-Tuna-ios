@@ -50,6 +50,32 @@ class ExerciseSearchViewModel: ObservableObject {
             .store(in: &cancellables)
     }
     
+    func refreshExercises() {
+        print("🔄 ExerciseSearchViewModel: Refreshing exercises from cache")
+        exerciseState = .loading
+        
+        exerciseRepository.refreshExerciseCache()
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { [weak self] completion in
+                    switch completion {
+                    case .failure(let error):
+                        print("❌ ExerciseSearchViewModel: Failed to refresh exercises: \(error)")
+                        self?.exerciseState = .error(error.localizedDescription)
+                    case .finished:
+                        print("✅ ExerciseSearchViewModel: Finished refreshing exercises")
+                        break
+                    }
+                },
+                receiveValue: { [weak self] exercises in
+                    print("📦 ExerciseSearchViewModel: Refreshed \(exercises.count) exercises")
+                    self?.allExercises = exercises
+                    self?.applyFilters()
+                }
+            )
+            .store(in: &cancellables)
+    }
+    
     func updateSearchQuery(_ query: String) {
         searchQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         applyFilters()

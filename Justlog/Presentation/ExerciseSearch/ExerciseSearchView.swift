@@ -54,7 +54,8 @@ struct ExerciseSearchView: View {
         .background(themeManager?.colors.background)
         .navigationBarHidden(true)
         .onAppear {
-            viewModel.loadExercises()
+            print("🔄 ExerciseSearchView: onAppear - refreshing exercises")
+            viewModel.refreshExercises()
         }
         .onChange(of: searchText) { _, newValue in
             viewModel.updateSearchQuery(newValue)

@@ -232,11 +232,16 @@ class WorkoutRepositoryImpl: WorkoutRepository {
     }
     
     func createCustomExercise(_ exercise: Exercise) async throws {
-        guard let userId = try await authRepository.getCurrentUser()?.id else {
+        // Check authentication status first
+        let currentUser = try await authRepository.getCurrentUser()
+        guard let userId = currentUser?.id else {
+            logger.error("❌ User not authenticated when creating exercise")
+            logger.error("❌ Current user object: \(String(describing: currentUser))")
             throw RepositoryError.userNotAuthenticated
         }
         
-        logger.info("🆕 Creating custom exercise: \(exercise.name)")
+        logger.info("🆕 Creating custom exercise: \(exercise.name) for user: \(userId)")
+        logger.info("👤 User authenticated: \(currentUser?.email ?? "no email")")
         
         let finalExercise = exercise.id.isEmpty ?
             exercise.copyWith(id: exercise.name.toCamelId()) : exercise
@@ -244,7 +249,8 @@ class WorkoutRepositoryImpl: WorkoutRepository {
         let exerciseData: [String: Any] = [
             "name": finalExercise.name,
             "id": finalExercise.id,
-            "primaryMuscles": [finalExercise.muscleGroup],
+            "muscleGroup": finalExercise.muscleGroup, // ✅ Firebase rules expect 'muscleGroup'
+            "primaryMuscles": [finalExercise.muscleGroup], // Keep for compatibility
             "secondaryMuscles": [],
             "equipment": finalExercise.equipment,
             "category": "strength",
@@ -263,13 +269,32 @@ class WorkoutRepositoryImpl: WorkoutRepository {
             "isCustom": true
         ]
         
-        try await firestore.collection("exercises")
-            .document(finalExercise.id)
-            .setData(exerciseData)
+        logger.info("📝 Attempting to save exercise data: \(exerciseData)")
         
-        exerciseCache.append(finalExercise)
-        
-        logger.info("✅ Successfully created custom exercise: \(finalExercise.name)")
+        do {
+            try await firestore.collection("exercises")
+                .document(finalExercise.id)
+                .setData(exerciseData)
+            
+            exerciseCache.append(finalExercise)
+            
+            logger.info("✅ Successfully created custom exercise: \(finalExercise.name)")
+        } catch {
+            logger.error("❌ Firebase error creating exercise: \(error)")
+            logger.error("❌ Error details: \(error.localizedDescription)")
+            logger.error("❌ Exercise data that failed: \(exerciseData)")
+            
+            // Check if it's a permission error
+            let errorMsg = error.localizedDescription.lowercased()
+            if errorMsg.contains("permission") || 
+               errorMsg.contains("denied") ||
+               errorMsg.contains("permission_denied") {
+                logger.error("🔒 Permission denied - check Firebase rules and user authentication")
+                throw RepositoryError.unauthorized("Permission denied creating custom exercise")
+            }
+            
+            throw RepositoryError.firestoreError(error.localizedDescription)
+        }
     }
     
     // MARK: - Workout Methods
@@ -359,11 +384,35 @@ class WorkoutRepositoryImpl: WorkoutRepository {
         
         logger.info("📱 Updating workout: \(workout.name)")
         
+        // Prepare workout data for update - same structure as createWorkout
+        let workoutData: [String: Any] = [
+            "name": workout.name,
+            "exercises": workout.exercises.map { workoutExercise in
+                [
+                    "id": workoutExercise.exercise.id,
+                    "name": workoutExercise.exercise.name,
+                    "equipment": workoutExercise.exercise.equipment,
+                    "muscleGroup": workoutExercise.exercise.muscleGroup,
+                    "defaultReps": workoutExercise.exercise.defaultReps,
+                    "defaultSets": workoutExercise.exercise.defaultSets,
+                    "isBodyweight": workoutExercise.exercise.isBodyweight,
+                    "usesWeight": workoutExercise.exercise.usesWeight,
+                    "tracksDistance": workoutExercise.exercise.tracksDistance,
+                    "isTimeBased": workoutExercise.exercise.isTimeBased,
+                    "description": workoutExercise.exercise.description
+                ]
+            },
+            "colorHex": workout.colorHex ?? "#007AFF",
+            "updatedAt": Date().millisecondsSince1970
+        ]
+        
         try await firestore.collection("user_workouts")
             .document(userId)
             .collection("routines")
             .document(workout.id)
-            .updateData(["updatedAt": Date().millisecondsSince1970])
+            .updateData(workoutData)
+        
+        logger.info("✅ Successfully updated workout: \(workout.name)")
     }
     
     func deleteWorkout(_ workoutId: String) async throws {
@@ -582,6 +631,13 @@ class WorkoutRepositoryImpl: WorkoutRepository {
     func onCleared() {
         globalListener?.remove()
         cancellables.removeAll()
+        clearCache()
+    }
+    
+    func clearCache() {
+        logger.info("🧹 Clearing workout repository cache")
+        exerciseCache.removeAll()
+        lastCacheUpdate = Date.distantPast
     }
 }
 

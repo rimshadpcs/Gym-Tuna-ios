@@ -6,6 +6,9 @@ protocol ExerciseRepository {
     /// Get all available exercises
     func getAllExercises() -> AnyPublisher<[Exercise], Error>
     
+    /// Force refresh the exercise cache and get all exercises
+    func refreshExerciseCache() -> AnyPublisher<[Exercise], Error>
+    
     /// Get exercises filtered by muscle group
     func getExercisesByMuscleGroup(_ muscleGroup: String) -> AnyPublisher<[Exercise], Error>
     
@@ -26,4 +29,8 @@ protocol ExerciseRepository {
     
     /// Get all custom exercises created by the current user
     func getCustomExercises() -> AnyPublisher<[Exercise], Error>
+    
+    // MARK: - Cleanup
+    func onCleared()
+    func clearCache()
 }

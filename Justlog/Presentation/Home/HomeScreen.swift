@@ -117,7 +117,9 @@ struct HomeScreen: View {
                                             workout: workout,
                                             onStartClick: { onStartRoutine(workout.id) },
                                             onRoutineNameClick: { onNavigateToRoutinePreview(workout.id) },
-                                            onEditClick: { onEditRoutine(workout.id) }
+                                            onDuplicateClick: { viewModel.duplicateWorkout(workout.id) },
+                                            onEditClick: { onEditRoutine(workout.id) },
+                                            onDeleteClick: { viewModel.deleteWorkout(workout.id) }
                                         )
                                         .padding(.horizontal, MaterialSpacing.screenHorizontal)
                                     }
@@ -214,7 +216,18 @@ struct HomeScreen: View {
                 Button("Create Routine") {
                     onNewRoutine()
                 }
-                .buttonStyle(.materialPrimary)
+                .foregroundColor(themeManager?.colors.onSurface ?? LightThemeColors.onSurface)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, MaterialSpacing.lg)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(themeManager?.colors.surface ?? LightThemeColors.surface)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(themeManager?.colors.outline ?? LightThemeColors.outline, lineWidth: 1)
+                        )
+                )
+                .buttonStyle(.plain)
             }
             .padding(.vertical, 40)
         }

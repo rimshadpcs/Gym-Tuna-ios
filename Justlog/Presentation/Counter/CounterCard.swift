@@ -2,7 +2,6 @@ import SwiftUI
 
 struct CounterCard: View {
     let counter: Counter
-    let hasPendingChanges: Bool
     let onIncrement: () -> Void
     let onDecrement: () -> Void
     let onTodayCountChanged: (Int) -> Void
@@ -32,101 +31,86 @@ struct CounterCard: View {
                 }
             }
             
-            // Total count (large, prominent like Android) - tappable for stats
+            // Today count (large, prominent display) - editable
             VStack(spacing: 2) {
-                Text("\(counter.currentCount)")
-                    .font(.system(size: 48, weight: .bold))
-                    .foregroundColor(themeManager?.colors.onSurface ?? LightThemeColors.onSurface)
-                    .onTapGesture {
-                        onStats()
-                    }
-            }
-            
-            // Today section with controls (matching Android layout exactly)
-            VStack(spacing: MaterialSpacing.sm) {
-                HStack(spacing: MaterialSpacing.lg) {
-                    // Decrement button (circle with minus)
-                    Button(action: onDecrement) {
-                        Image(systemName: "minus")
-                            .font(.title2)
-                            .fontWeight(.semibold)
+                ZStack {
+                    if isEditing {
+                        TextField("", text: $todayCountText)
+                            .font(.system(size: 48, weight: .bold))
+                            .multilineTextAlignment(.center)
+                            .keyboardType(.numberPad)
+                            .focused($isTextFieldFocused)
                             .foregroundColor(themeManager?.colors.onSurface ?? LightThemeColors.onSurface)
-                            .frame(width: 44, height: 44)
-                            .background(
-                                Circle()
-                                    .stroke(themeManager?.colors.outline ?? LightThemeColors.outline, lineWidth: 1.5)
-                            )
-                    }
-                    .disabled(counter.todayCount <= 0)
-                    .opacity(counter.todayCount > 0 ? 1.0 : 0.3)
-                    
-                    // Today count (editable, matching Android styling)
-                    VStack(spacing: 4) {
-                        ZStack {
-                            if isEditing {
-                                TextField("", text: $todayCountText)
-                                    .font(.system(size: 42, weight: .bold))
-                                    .multilineTextAlignment(.center)
-                                    .keyboardType(.numberPad)
-                                    .focused($isTextFieldFocused)
-                                    .foregroundColor(themeManager?.colors.onSurface ?? LightThemeColors.onSurface)
-                                    .onSubmit {
+                            .onSubmit {
+                                commitEdit()
+                            }
+                            .toolbar {
+                                ToolbarItemGroup(placement: .keyboard) {
+                                    Spacer()
+                                    Button("Done") {
                                         commitEdit()
                                     }
-                            } else {
-                                Text("\(counter.todayCount)")
-                                    .font(.system(size: 42, weight: .bold))
-                                    .foregroundColor(themeManager?.colors.onSurface ?? LightThemeColors.onSurface)
-                                    .onTapGesture {
-                                        startEditing()
-                                    }
+                                    .foregroundColor(themeManager?.colors.primary ?? LightThemeColors.primary)
+                                }
                             }
-                        }
-                        .frame(minWidth: 80, minHeight: 60)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(themeManager?.colors.surfaceVariant ?? LightThemeColors.surfaceVariant)
-                                .opacity(0.5)
-                        )
-                        
-                        Text("Today (tap to edit)")
-                            .font(.caption)
-                            .foregroundColor(themeManager?.colors.onSurfaceVariant ?? LightThemeColors.onSurfaceVariant)
-                    }
-                    
-                    // Increment button (filled circle with plus)
-                    Button(action: onIncrement) {
-                        Image(systemName: "plus")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                            .foregroundColor(themeManager?.colors.onPrimary ?? LightThemeColors.onPrimary)
-                            .frame(width: 44, height: 44)
-                            .background(
-                                Circle()
-                                    .fill(themeManager?.colors.primary ?? LightThemeColors.primary)
-                            )
+                    } else {
+                        Text("\(counter.todayCount)")
+                            .font(.system(size: 48, weight: .bold))
+                            .foregroundColor(themeManager?.colors.onSurface ?? LightThemeColors.onSurface)
+                            .onTapGesture {
+                                startEditing()
+                            }
+                            .onLongPressGesture {
+                                onStats() // Long press for stats
+                            }
                     }
                 }
                 
-                // Total display below (like Android)
-                if counter.currentCount != counter.todayCount {
-                    Text("Total: \(counter.currentCount)")
-                        .font(.body)
+                Text(isEditing ? "Enter count" : "Today (tap to edit)")
+                    .font(.caption)
+                    .foregroundColor(themeManager?.colors.onSurfaceVariant ?? LightThemeColors.onSurfaceVariant)
+            }
+            
+            // Control buttons section - simplified layout
+            HStack(spacing: MaterialSpacing.xl) {
+                // Decrement button (circle with minus)
+                Button(action: onDecrement) {
+                    Image(systemName: "minus")
+                        .font(.title2)
+                        .fontWeight(.semibold)
                         .foregroundColor(themeManager?.colors.onSurface ?? LightThemeColors.onSurface)
+                        .frame(width: 50, height: 50)
+                        .background(
+                            Circle()
+                                .stroke(themeManager?.colors.outline ?? LightThemeColors.outline, lineWidth: 1.5)
+                        )
                 }
+                .disabled(counter.todayCount <= 0)
+                .opacity(counter.todayCount > 0 ? 1.0 : 0.3)
                 
-                // Loading indicator
-                if hasPendingChanges {
-                    HStack(spacing: 4) {
-                        ProgressView()
-                            .scaleEffect(0.7)
-                            .progressViewStyle(CircularProgressViewStyle(tint: themeManager?.colors.primary ?? LightThemeColors.primary))
-                        Text("Syncing...")
-                            .font(.caption)
-                            .foregroundColor(themeManager?.colors.primary ?? LightThemeColors.primary)
-                    }
+                Spacer()
+                
+                // Increment button (filled circle with plus)
+                Button(action: onIncrement) {
+                    Image(systemName: "plus")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(themeManager?.colors.onPrimary ?? LightThemeColors.onPrimary)
+                        .frame(width: 50, height: 50)
+                        .background(
+                            Circle()
+                                .fill(themeManager?.colors.primary ?? LightThemeColors.primary)
+                        )
                 }
             }
+            
+            // Total count display (always show for reference)
+            Text("All Time: \(counter.currentCount)")
+                .font(.caption)
+                .foregroundColor(themeManager?.colors.onSurfaceVariant ?? LightThemeColors.onSurfaceVariant)
+            
+            // Removed syncing indicator for better UX
+            // Background sync happens silently without UI feedback
         }
         .padding(MaterialSpacing.md)
         .background(
@@ -147,8 +131,17 @@ struct CounterCard: View {
             y: 2
         )
         .contentShape(Rectangle())
+        .simultaneousGesture(
+            TapGesture().onEnded { _ in
+                if isEditing {
+                    commitEdit() // Dismiss keyboard when tapping outside
+                }
+            }
+        )
         .onTapGesture {
-            onStats()
+            if !isEditing {
+                onStats() // Only show stats if not editing
+            }
         }
         .onAppear {
             todayCountText = "\(counter.todayCount)"
@@ -169,15 +162,19 @@ struct CounterCard: View {
         todayCountText = "\(counter.todayCount)"
         isEditing = true
         isTextFieldFocused = true
+        print("🔢 Started editing counter, current value: \(counter.todayCount)")
     }
     
     private func commitEdit() {
+        print("🔢 Committing edit: '\(todayCountText)' (was: \(counter.todayCount))")
         isEditing = false
         isTextFieldFocused = false
         
         if let newCount = Int(todayCountText), newCount >= 0 {
+            print("🔢 Valid input: \(newCount), calling onTodayCountChanged")
             onTodayCountChanged(newCount)
         } else {
+            print("🔢 Invalid input: '\(todayCountText)', reverting to \(counter.todayCount)")
             todayCountText = "\(counter.todayCount)"
         }
     }

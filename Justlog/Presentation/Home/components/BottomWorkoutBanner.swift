@@ -10,12 +10,10 @@ import Foundation
 
 struct BottomWorkoutBanner: View {
     @Environment(\.themeManager) private var themeManager
+    @StateObject private var sessionManager = WorkoutSessionManager.shared
     let workout: Workout
     let onResumeClick: () -> Void
     let onDiscardClick: () -> Void
-    
-    @State private var elapsedTime: TimeInterval = 0
-    @State private var timer: Timer?
     
     private var isDarkTheme: Bool {
         switch themeManager?.currentTheme {
@@ -49,10 +47,9 @@ struct BottomWorkoutBanner: View {
                     .foregroundColor(themeManager?.colors.onSurface ?? LightThemeColors.onSurface)
                     .lineLimit(1)
                 
-                Text(formattedElapsedTime)
+                Text(sessionManager.getCurrentDuration())
                     .vagFont(size: 12, weight: .regular)
                     .foregroundColor(themeManager?.colors.onSurface.opacity(0.7) ?? LightThemeColors.onSurface.opacity(0.7))
-                    .animation(nil, value: elapsedTime) // Disable animation for timer updates
             }
             
             Spacer()
@@ -110,34 +107,5 @@ struct BottomWorkoutBanner: View {
         )
         .padding(.horizontal)
         .padding(.bottom)
-        .onAppear {
-            if timer == nil {
-                startTimer()
-            }
-        }
-        .onDisappear {
-            stopTimer()
-        }
-    }
-    
-    // MARK: - Timer Management
-    private func startTimer() {
-        // Use a more efficient timer that doesn't cause UI flickering
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-            DispatchQueue.main.async {
-                elapsedTime += 1
-            }
-        }
-    }
-    
-    private func stopTimer() {
-        timer?.invalidate()
-        timer = nil
-    }
-    
-    private var formattedElapsedTime: String {
-        let minutes = Int(elapsedTime) / 60
-        let seconds = Int(elapsedTime) % 60
-        return String(format: "%02d:%02d", minutes, seconds)
     }
 }

@@ -61,7 +61,8 @@ class DependencyContainer: ObservableObject {
         return AuthViewModel(
             authRepository: authRepository,
             googleSignInHelper: googleSignInHelper,
-            userPreferences: userPreferences
+            userPreferences: userPreferences,
+            dependencyContainer: self
         )
     }
     
@@ -70,7 +71,8 @@ class DependencyContainer: ObservableObject {
             workoutRepository: workoutRepository,
             authRepository: authRepository,
             workoutSessionManager: workoutSessionManager,
-            workoutHistoryRepository: workoutHistoryRepository
+            workoutHistoryRepository: workoutHistoryRepository,
+            subscriptionRepository: subscriptionRepository
         )
     }
     
@@ -138,6 +140,16 @@ class DependencyContainer: ObservableObject {
             subscription: subscriptionRepository,
             counter: counterRepository
         )
+    }
+    
+    // MARK: - Cache Management
+    
+    func clearAllCaches() {
+        print("🧹 DependencyContainer: Clearing all repository caches")
+        workoutRepository.clearCache()
+        exerciseRepository.clearCache()
+        subscriptionRepository.clearCache()
+        counterRepository.clearCache()
     }
 }
 

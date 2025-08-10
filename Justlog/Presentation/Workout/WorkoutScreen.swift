@@ -132,7 +132,7 @@ struct WorkoutScreen: View {
                 .zIndex(1)
             }
         }
-        .background(themeManager?.colors.background ?? .white)
+        .background(themeManager?.colors.background ?? LightThemeColors.background)
         .navigationBarHidden(true)
         .onAppear {
             // Initialize workout FIRST
@@ -437,10 +437,10 @@ struct WorkoutScreen: View {
                             viewModel.removeExercise(workoutExercise)
                         }
                     )
-                    .padding(.horizontal, 4)
+                    .padding(.horizontal, 0) // Remove extra padding to use full width
                 }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 4) // Further reduced for maximum width utilization
             .padding(.top, 8)
             .padding(.bottom, 120) // Space for bottom buttons
         }
@@ -456,16 +456,16 @@ struct WorkoutScreen: View {
                     Text("Add Exercise")
                         .font(.system(size: 16, weight: .semibold))
                 }
-                .foregroundColor(.primary)
+                .foregroundColor(themeManager?.colors.onSurface ?? LightThemeColors.onSurface)
                 .padding(.vertical, 12)
                 .frame(maxWidth: .infinity)
             }
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.gray.opacity(0.1))
+                    .fill(themeManager?.colors.surface ?? LightThemeColors.surface)
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.gray, lineWidth: 1)
+                            .stroke(themeManager?.colors.outline ?? LightThemeColors.outline, lineWidth: 1)
                     )
             )
             
@@ -481,7 +481,7 @@ struct WorkoutScreen: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.gray.opacity(0.1))
+                    .fill(themeManager?.colors.surface ?? LightThemeColors.surface)
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
                             .stroke(Color.red, lineWidth: 1)
@@ -490,7 +490,7 @@ struct WorkoutScreen: View {
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 16)
-        .background(Color(.systemBackground))
+        .background(themeManager?.colors.background ?? LightThemeColors.background)
     }
     
     // MARK: - Helper Methods

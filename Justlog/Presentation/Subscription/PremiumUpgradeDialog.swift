@@ -63,12 +63,12 @@ struct PremiumUpgradeDialog: View {
             VStack(spacing: MaterialSpacing.sm) {
                 // Monthly pricing with strikethrough
                 HStack {
-                    Text("$2.29")
-                        .font(.body)
-                        .strikethrough()
-                        .foregroundColor((themeManager?.colors.onSurface ?? LightThemeColors.onSurface).opacity(0.6))
+//                    Text("$2.29")
+//                        .font(.body)
+//                        .strikethrough()
+//                        .foregroundColor((themeManager?.colors.onSurface ?? LightThemeColors.onSurface).opacity(0.6))
                     
-                    Text("$1.79/month")
+                    Text("$1.99/month")
                         .font(.title3)
                         .fontWeight(.bold)
                         .foregroundColor(themeManager?.colors.primary ?? LightThemeColors.primary)
@@ -80,10 +80,10 @@ struct PremiumUpgradeDialog: View {
                 
                 // Yearly pricing (better deal)  
                 HStack {
-                    Text("$22.99")
-                        .font(.body)
-                        .strikethrough()
-                        .foregroundColor((themeManager?.colors.onSurface ?? LightThemeColors.onSurface).opacity(0.6))
+//                    Text("$22.99")
+//                        .font(.body)
+//                        .strikethrough()
+//                        .foregroundColor((themeManager?.colors.onSurface ?? LightThemeColors.onSurface).opacity(0.6))
                     
                     Text("$17.99/year")
                         .font(.title2)
@@ -92,7 +92,7 @@ struct PremiumUpgradeDialog: View {
                 }
                 
                 // Savings highlight
-                Text("💰 Save $3.49 with yearly plan!")
+                Text("💰 Save $5.89 with yearly plan!")
                     .font(.caption)
                     .fontWeight(.medium)
                     .foregroundColor(.green)

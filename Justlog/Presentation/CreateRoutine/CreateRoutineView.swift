@@ -10,6 +10,7 @@ import SwiftUI
 struct CreateRoutineView: View {
     @StateObject private var viewModel: CreateRoutineViewModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.themeManager) private var themeManager
     
     // UI feedback state
     @State private var showExerciseAddedFeedback = false
@@ -61,7 +62,7 @@ struct CreateRoutineView: View {
     
     var body: some View {
         ZStack {
-            MaterialColors.background
+            (themeManager?.colors.background ?? LightThemeColors.background)
                 .ignoresSafeArea()
                 .onAppear {
                     print("🏗️ CreateRoutineView: View onAppear called")
@@ -134,13 +135,13 @@ struct CreateRoutineView: View {
                         
                         Text("Added \(addedExerciseName)")
                             .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.white)
+                            .foregroundColor(themeManager?.colors.onSurface ?? .white)
                     }
                     .padding(.horizontal, 20)
                     .padding(.vertical, 12)
                     .background(
                         RoundedRectangle(cornerRadius: 25)
-                            .fill(Color.black.opacity(0.8))
+                            .fill(themeManager?.colors.surface.opacity(0.9) ?? Color.black.opacity(0.8))
                     )
                     .padding(.bottom, 100)
                 }
@@ -183,14 +184,8 @@ struct CreateRoutineView: View {
             VStack(spacing: MaterialSpacing.xs) {
                 Text(routineId != nil ? "Edit Routine" : "Create Routine")
                     .font(MaterialTypography.headline6)
-                    .foregroundColor(MaterialColors.onBackground)
+                    .foregroundColor(themeManager?.colors.onBackground ?? LightThemeColors.onBackground)
                 
-                // Show routine limit status for free users (only when creating new routine)
-                if routineId == nil && !viewModel.isPremium && !viewModel.routineLimitStatus.isEmpty {
-                    Text(viewModel.routineLimitStatus)
-                        .font(MaterialTypography.caption)
-                        .foregroundColor(viewModel.routineCount >= 2 ? .red : .gray)
-                }
             }
             
             Spacer()
@@ -199,7 +194,7 @@ struct CreateRoutineView: View {
             Button(action: saveRoutine) {
                 Text("Save")
                     .font(MaterialTypography.button)
-                    .foregroundColor(canSave ? MaterialColors.primary : .gray)
+                    .foregroundColor(canSave ? (themeManager?.colors.primary ?? LightThemeColors.primary) : (themeManager?.colors.onSurface.opacity(0.5) ?? .gray))
             }
             .disabled(!canSave)
         }
@@ -213,17 +208,17 @@ struct CreateRoutineView: View {
         VStack(alignment: .leading, spacing: MaterialSpacing.sm) {
             TextField("Routine title", text: $viewModel.routineName)
                 .font(MaterialTypography.body1)
-                .foregroundColor(MaterialColors.onSurface)
+                .foregroundColor(themeManager?.colors.onSurface ?? LightThemeColors.onSurface)
                 .onChange(of: viewModel.routineName) { newValue in
                     print("🏷️ TextField onChange: '\(newValue)'")
                 }
                 .padding(MaterialSpacing.lg)
                 .background(
                     RoundedRectangle(cornerRadius: MaterialCornerRadius.medium)
-                        .stroke(MaterialColors.outline, lineWidth: 1)
+                        .stroke(themeManager?.colors.outline ?? LightThemeColors.outline, lineWidth: 1)
                         .background(
                             RoundedRectangle(cornerRadius: MaterialCornerRadius.medium)
-                                .fill(MaterialColors.surface)
+                                .fill(themeManager?.colors.surface ?? LightThemeColors.surface)
                         )
                 )
         }
@@ -236,7 +231,7 @@ struct CreateRoutineView: View {
         VStack(alignment: .leading, spacing: MaterialSpacing.lg) {
             Text("Exercises (\(viewModel.selectedExercises.count))")
                 .font(MaterialTypography.subtitle1)
-                .foregroundColor(MaterialColors.onSurface)
+                .foregroundColor(themeManager?.colors.onSurface ?? LightThemeColors.onSurface)
             
             if viewModel.selectedExercises.isEmpty {
                 emptyExerciseState
@@ -250,11 +245,11 @@ struct CreateRoutineView: View {
         VStack(spacing: MaterialSpacing.lg) {
             Image(systemName: "dumbbell")
                 .font(.system(size: 48))
-                .foregroundColor(MaterialColors.onSurface.opacity(0.5))
+                .foregroundColor(themeManager?.colors.onSurface.opacity(0.5) ?? LightThemeColors.onSurface.opacity(0.5))
             
             Text("Get started by adding an exercise to your routine.")
                 .font(MaterialTypography.body1)
-                .foregroundColor(MaterialColors.onSurface.opacity(0.7))
+                .foregroundColor(themeManager?.colors.onSurface.opacity(0.7) ?? LightThemeColors.onSurface.opacity(0.7))
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
@@ -283,15 +278,15 @@ struct CreateRoutineView: View {
                 Text("Add exercise")
                     .font(MaterialTypography.button)
             }
-            .foregroundColor(MaterialColors.onSurface)
+            .foregroundColor(themeManager?.colors.onSurface ?? LightThemeColors.onSurface)
             .frame(maxWidth: .infinity)
             .padding(.vertical, MaterialSpacing.lg)
             .background(
                 RoundedRectangle(cornerRadius: MaterialCornerRadius.extraLarge)
-                    .stroke(MaterialColors.outline, lineWidth: 1)
+                    .stroke(themeManager?.colors.outline ?? LightThemeColors.outline, lineWidth: 1)
                     .background(
                         RoundedRectangle(cornerRadius: MaterialCornerRadius.extraLarge)
-                            .fill(MaterialColors.surface)
+                            .fill(themeManager?.colors.surface ?? LightThemeColors.surface)
                     )
             )
         }
@@ -325,17 +320,18 @@ struct CreateRoutineView: View {
 struct SelectedExerciseItem: View {
     let exercise: Exercise
     let onRemove: () -> Void
+    @Environment(\.themeManager) private var themeManager
     
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: MaterialSpacing.xs) {
                 Text(exercise.name)
                     .font(MaterialTypography.subtitle1)
-                    .foregroundColor(MaterialColors.onSurface)
+                    .foregroundColor(themeManager?.colors.onSurface ?? LightThemeColors.onSurface)
                 
                 Text("\(exercise.muscleGroup) | \(exercise.equipment)")
                     .font(MaterialTypography.body2)
-                    .foregroundColor(MaterialColors.onSurface.opacity(0.7))
+                    .foregroundColor(themeManager?.colors.onSurface.opacity(0.7) ?? LightThemeColors.onSurface.opacity(0.7))
             }
             
             Spacer()
@@ -343,7 +339,7 @@ struct SelectedExerciseItem: View {
             Button(action: onRemove) {
                 Image(systemName: "xmark")
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(MaterialColors.onSurface.opacity(0.7))
+                    .foregroundColor(themeManager?.colors.onSurface.opacity(0.7) ?? LightThemeColors.onSurface.opacity(0.7))
             }
         }
         .padding(MaterialSpacing.cardPadding)
@@ -356,6 +352,7 @@ struct SelectedExerciseItem: View {
 struct PremiumUpgradeSheet: View {
     let onDismiss: () -> Void
     let onUpgrade: () -> Void
+    @Environment(\.themeManager) private var themeManager
     
     var body: some View {
         VStack(spacing: MaterialSpacing.sectionSpacing) {
@@ -367,12 +364,12 @@ struct PremiumUpgradeSheet: View {
                 
                 Text("Ready for More Routines?")
                     .font(MaterialTypography.headline5)
-                    .foregroundColor(MaterialColors.onSurface)
+                    .foregroundColor(themeManager?.colors.onSurface ?? LightThemeColors.onSurface)
                     .multilineTextAlignment(.center)
                 
                 Text("You've reached the free limit of 3 workout routines. Upgrade to Premium to create unlimited routines and unlock all features!")
                     .font(MaterialTypography.body1)
-                    .foregroundColor(MaterialColors.onSurface.opacity(0.8))
+                    .foregroundColor(themeManager?.colors.onSurface.opacity(0.8) ?? LightThemeColors.onSurface.opacity(0.8))
                     .multilineTextAlignment(.center)
             }
             
@@ -388,7 +385,7 @@ struct PremiumUpgradeSheet: View {
                         .padding(.vertical, MaterialSpacing.lg)
                         .background(
                             RoundedRectangle(cornerRadius: MaterialCornerRadius.medium)
-                                .fill(MaterialColors.primary)
+                                .fill(themeManager?.colors.primary ?? LightThemeColors.primary)
                         )
                 }
                 .buttonStyle(.materialPrimary)
@@ -396,7 +393,7 @@ struct PremiumUpgradeSheet: View {
                 Button(action: onDismiss) {
                     Text("Maybe Later")
                         .font(MaterialTypography.button)
-                        .foregroundColor(MaterialColors.onSurface)
+                        .foregroundColor(themeManager?.colors.onSurface ?? LightThemeColors.onSurface)
                 }
             }
         }

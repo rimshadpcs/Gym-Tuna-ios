@@ -28,6 +28,7 @@ class HomeViewModel: ObservableObject {
     private let authRepository: AuthRepository
     private let workoutSessionManager: WorkoutSessionManager
     private let workoutHistoryRepository: WorkoutHistoryRepository
+    private let subscriptionRepository: SubscriptionRepository
     private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Computed Properties
@@ -72,12 +73,14 @@ class HomeViewModel: ObservableObject {
         workoutRepository: WorkoutRepository,
         authRepository: AuthRepository,
         workoutSessionManager: WorkoutSessionManager,
-        workoutHistoryRepository: WorkoutHistoryRepository
+        workoutHistoryRepository: WorkoutHistoryRepository,
+        subscriptionRepository: SubscriptionRepository
     ) {
         self.workoutRepository = workoutRepository
         self.authRepository = authRepository
         self.workoutSessionManager = workoutSessionManager
         self.workoutHistoryRepository = workoutHistoryRepository
+        self.subscriptionRepository = subscriptionRepository
         
         setupWeekDates()
         
@@ -201,7 +204,7 @@ class HomeViewModel: ObservableObject {
     
     private func loadSubscription() async {
         do {
-            let subscriptionPublisher = try await SubscriptionRepositoryImpl().getUserSubscription()
+            let subscriptionPublisher = try await subscriptionRepository.getUserSubscription()
             subscriptionPublisher
                 .receive(on: DispatchQueue.main)
                 .sink(
@@ -372,6 +375,61 @@ class HomeViewModel: ObservableObject {
     func refreshWeeklyCalendar() {
         Task {
             await loadWeekDatesWithWorkoutData()
+        }
+    }
+    
+    func duplicateWorkout(_ workoutId: String) {
+        Task {
+            await duplicateWorkoutAsync(workoutId)
+        }
+    }
+    
+    func deleteWorkout(_ workoutId: String) {
+        Task {
+            await deleteWorkoutAsync(workoutId)
+        }
+    }
+    
+    // MARK: - Workout Management
+    
+    private func duplicateWorkoutAsync(_ workoutId: String) async {
+        guard let originalWorkout = workouts.first(where: { $0.id == workoutId }) else {
+            errorMessage = "Workout not found"
+            return
+        }
+        
+        do {
+            // Create duplicate with new ID and name
+            let duplicateWorkout = Workout(
+                id: UUID().uuidString,
+                name: "\(originalWorkout.name) (Copy)",
+                userId: originalWorkout.userId,
+                exercises: originalWorkout.exercises,
+                createdAt: Date(),
+                colorHex: originalWorkout.colorHex
+            )
+            
+            try await workoutRepository.createWorkout(duplicateWorkout)
+            
+            // Refresh the workouts list
+            await loadWorkouts()
+            
+        } catch {
+            print("Error duplicating workout: \(error)")
+            errorMessage = "Failed to duplicate workout"
+        }
+    }
+    
+    private func deleteWorkoutAsync(_ workoutId: String) async {
+        do {
+            try await workoutRepository.deleteWorkout(workoutId)
+            
+            // Refresh the workouts list
+            await loadWorkouts()
+            
+        } catch {
+            print("Error deleting workout: \(error)")
+            errorMessage = "Failed to delete workout"
         }
     }
 }

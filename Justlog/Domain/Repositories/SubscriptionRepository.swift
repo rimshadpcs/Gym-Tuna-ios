@@ -8,4 +8,8 @@ protocol SubscriptionRepository {
     func purchaseYearly() async throws -> Result<UserSubscription, Error>
     func restorePurchases() async throws -> Result<UserSubscription, Error>
     func cancelSubscription() async throws -> Result<Void, Error>
+    
+    // MARK: - Cleanup
+    func onCleared()
+    func clearCache()
 }

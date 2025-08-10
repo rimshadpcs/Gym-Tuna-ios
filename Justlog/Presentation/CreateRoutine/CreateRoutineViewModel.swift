@@ -38,7 +38,6 @@ class CreateRoutineViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var errorMessage: String? = nil
     @Published var selectedColorHex: String = RoutineColors.colorOptions[0].hex
-    @Published var routineLimitStatus: String = ""
     @Published var lastAddedExercise: Exercise? = nil
     
     // MARK: - Private Properties
@@ -228,7 +227,6 @@ class CreateRoutineViewModel: ObservableObject {
                 
                 // Update routine count after successful creation
                 routineCount += 1
-                updateRoutineLimitStatus()
             }
             
             return true
@@ -293,7 +291,6 @@ class CreateRoutineViewModel: ObservableObject {
                     receiveValue: { [weak self] subscription in
                         self?.isPremium = subscription.tier == .premium && subscription.isActive
                         print("Subscription loaded - isPremium: \(subscription.tier == .premium && subscription.isActive)")
-                        self?.updateRoutineLimitStatus()
                     }
                 )
                 .store(in: &cancellables)
@@ -309,7 +306,6 @@ class CreateRoutineViewModel: ObservableObject {
             
             let count = try await workoutRepository.getWorkoutCount(userId: user.id)
             routineCount = count
-            updateRoutineLimitStatus()
             print("Routine count loaded: \(routineCount)")
         } catch {
             print("Error loading routine count: \(error)")
@@ -317,25 +313,6 @@ class CreateRoutineViewModel: ObservableObject {
         }
     }
     
-    private func updateRoutineLimitStatus() {
-        if isPremium {
-            routineLimitStatus = ""
-            return
-        }
-        
-        let maxFree = 3
-        
-        switch routineCount {
-        case 0:
-            routineLimitStatus = "\(routineCount)/\(maxFree) routines used"
-        case 1..<maxFree:
-            routineLimitStatus = "\(routineCount)/\(maxFree) routines used"
-        case maxFree - 1:
-            routineLimitStatus = "⚠️ Last free routine remaining!"
-        default:
-            routineLimitStatus = "Free limit reached (3/3)"
-        }
-    }
     
     private func canCreateNewRoutine() async -> Bool {
         // Premium users can create unlimited routines

@@ -56,7 +56,7 @@ struct SettingsView: View {
                 
                 // Main Content
                 ScrollView {
-                    LazyVStack(spacing: MaterialSpacing.sectionSpacing) {
+                    LazyVStack(spacing: MaterialSpacing.lg) {
                         // Profile Section
                         SettingsSection(title: "Profile") {
                             SettingsItem(
@@ -142,6 +142,13 @@ struct SettingsView: View {
                                         shareApp()
                                     }
                                 )
+                            }
+                        }
+                        
+                        // Developer Section (for testing premium features)
+                        SettingsSection(title: "🛠️ Developer Testing") {
+                            VStack(spacing: 0) {
+                                developerPremiumToggle
                             }
                         }
                     }
@@ -319,7 +326,52 @@ struct SettingsView: View {
             .stroke(themeManager?.colors.outline ?? LightThemeColors.outline, lineWidth: 1)
     }
     
+    // MARK: - Developer Testing Components
+    
+    private var developerPremiumToggle: some View {
+        HStack(spacing: MaterialSpacing.md) {
+            // Debug Icon
+            Image(systemName: "hammer")
+                .font(.system(size: 24))
+                .foregroundColor(.orange)
+                .frame(width: 24, height: 24)
+            
+            // Content
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Premium Override")
+                    .vagFont(size: 16, weight: .semibold)
+                    .foregroundColor(themeManager?.colors.onSurface ?? LightThemeColors.onSurface)
+                
+                Text(isPremium ? "Premium Active" : "Free Tier Active")
+                    .font(MaterialTypography.body2)
+                    .foregroundColor((themeManager?.colors.onSurface ?? LightThemeColors.onSurface).opacity(0.6))
+            }
+            
+            Spacer()
+            
+            // Toggle Switch
+            Toggle("", isOn: Binding(
+                get: { isPremium },
+                set: { newValue in
+                    toggleDeveloperPremium(newValue)
+                }
+            ))
+            .labelsHidden()
+        }
+        .padding(.horizontal, MaterialSpacing.md)
+        .padding(.vertical, MaterialSpacing.md)
+        .background(themeManager?.colors.surface ?? LightThemeColors.surface)
+    }
+    
     // MARK: - Helper Methods
+    
+    private func toggleDeveloperPremium(_ isEnabled: Bool) {
+        if isEnabled {
+            viewModel.testActivatePremium()
+        } else {
+            viewModel.testCancelSubscription()
+        }
+    }
     
     private func getCurrentTheme() -> AppTheme {
         themeManager?.currentTheme ?? .neutral

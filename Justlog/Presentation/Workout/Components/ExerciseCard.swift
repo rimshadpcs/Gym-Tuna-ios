@@ -81,7 +81,7 @@ struct ExerciseCard: View {
             exerciseHeaderView
                 .padding(.horizontal, 0)
                 .padding(.vertical, 16)
-                .background(surfaceColor)
+                .background(backgroundColor)
             
             // Expandable content (only show when expanded and not in reorder mode)
             if isExpanded && !isReorderMode {
@@ -89,7 +89,7 @@ struct ExerciseCard: View {
                     .padding(.bottom, 16)
             }
         }
-        .background(surfaceColor)
+        .background(backgroundColor)
         .onAppear {
             notes = workoutExercise.notes
         }
@@ -117,8 +117,8 @@ struct ExerciseCard: View {
     
     // MARK: - Computed Properties
     
-    private var surfaceColor: Color {
-        themeManager?.colors.surface ?? Color(.systemBackground)
+    private var backgroundColor: Color {
+        themeManager?.colors.background ?? .white // Match screen background
     }
     
     private var onSurfaceColor: Color {
@@ -135,14 +135,14 @@ struct ExerciseCard: View {
         VStack(spacing: 16) {
             // Notes field
             notesFieldView
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 4) // Further reduced for maximum width
             
             // Rest timer - LEFT ALIGNED
             HStack {
                 restTimerView
                 Spacer()
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 4) // Further reduced for maximum width
             
             // Sets header and list
             setsContentView
@@ -152,14 +152,14 @@ struct ExerciseCard: View {
     private var setsContentView: some View {
         VStack(spacing: 8) {
             setsHeaderView
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 4) // Further reduced for maximum width
             
             // Sets list
             setsListView
             
             // Add set button
             addSetButtonView
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 4) // Further reduced for maximum width
                 .padding(.top, 8)
         }
     }
@@ -214,11 +214,44 @@ struct ExerciseCard: View {
             // Muscle group icon
             muscleGroupIconView
             
-            // Exercise name - LEFT ALIGNED
-            Text(workoutExercise.exercise.name)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundColor(onSurfaceColor)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            // Exercise name and labels
+            VStack(alignment: .leading, spacing: 4) {
+                // Exercise name - LEFT ALIGNED
+                Text(workoutExercise.exercise.name)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(onSurfaceColor)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                
+                // Superset and Dropset labels
+                if workoutExercise.isSuperset || workoutExercise.isDropset {
+                    VStack(alignment: .leading, spacing: 3) {
+                        if workoutExercise.isSuperset {
+                            Text("SUPERSET")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .fill(Color.orange)
+                                )
+                        }
+                        
+                        if workoutExercise.isDropset {
+                            Text("DROPSET")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .fill(Color.green)
+                                )
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
             
             if !isReorderMode {
                 headerControlsView
@@ -232,7 +265,7 @@ struct ExerciseCard: View {
     private var muscleGroupIconView: some View {
         ZStack {
             Circle()
-                .fill(surfaceColor)
+                .fill(themeManager?.colors.surface ?? Color(.systemBackground)) // Keep surface for icon background
                 .frame(width: 40, height: 40)
                 .overlay(
                     Circle()
@@ -342,63 +375,85 @@ struct ExerciseCard: View {
     }
     
     private var setsHeaderView: some View {
-        HStack(spacing: 0) {
-            // SET
+        HStack(spacing: 6) { // Consistent spacing for perfect alignment
+            // SET - match SetRowComponent setNumberView width
             Text("SET")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.secondary)
+                .frame(width: 40, alignment: .center)
+            
+            // LAST - match SetRowComponent previousPerformanceView width
+            Text("LAST")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(.secondary)
                 .frame(width: 50, alignment: .center)
             
-            // LAST
-            Text("LAST")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(.secondary)
-                .frame(width: 60, alignment: .center)
-            
-            // BEST
+            // BEST - match SetRowComponent bestPerformanceView width
             Text("BEST")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(.secondary)
-                .frame(width: 60, alignment: .center)
+                .frame(width: 40, alignment: .center)
             
-            Spacer()
-            
-            // Dynamic headers based on exercise type
+            // Dynamic headers based on exercise type - match SetRowComponent inputFieldsView width
             dynamicHeadersView
+                .frame(maxWidth: 165) // Updated to match adjusted input field area
             
-            // Checkbox column space
-            Spacer().frame(width: 44)
+            // Checkbox column space - match SetRowComponent completionCheckboxView width
+            Spacer().frame(width: 24)
         }
+        .padding(.horizontal, 12) // Increased to match set row padding for perfect alignment
     }
     
     private var dynamicHeadersView: some View {
-        HStack(spacing: 8) {
-            if workoutExercise.exercise.usesWeight {
+        // Calculate field layout to match SetRowComponent exactly
+        let showWeightField = workoutExercise.exercise.usesWeight
+        let showDistanceField = workoutExercise.exercise.tracksDistance
+        let showTimeField = workoutExercise.exercise.isTimeBased
+        let showRepsField = !workoutExercise.exercise.isTimeBased
+        
+        var inputFieldCount = 0
+        if showWeightField { inputFieldCount += 1 }
+        if showDistanceField { inputFieldCount += 1 }
+        if showTimeField { inputFieldCount += 1 }
+        if showRepsField { inputFieldCount += 1 }
+        
+        let availableWidth: CGFloat = 157 // Match SetRowComponent
+        let fieldSpacing: CGFloat = 6 // Match SetRowComponent
+        let totalSpacing = fieldSpacing * CGFloat(max(0, inputFieldCount - 1))
+        let baseFieldWidth = (availableWidth - totalSpacing) / CGFloat(max(1, inputFieldCount))
+        
+        let timeFieldWidth: CGFloat = inputFieldCount == 1 ? 80 : 65
+        let standardFieldWidth: CGFloat = (showTimeField && inputFieldCount > 1) ?
+            (availableWidth - timeFieldWidth - totalSpacing) / CGFloat(max(1, inputFieldCount - 1)) :
+            baseFieldWidth
+        
+        return HStack(spacing: fieldSpacing) { // Match exact field spacing
+            if showWeightField {
                 Text(weightUnit == .kg ? "KG" : "LB")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.secondary)
-                    .frame(width: 60, alignment: .center)
+                    .frame(width: standardFieldWidth, alignment: .center)
             }
             
-            if workoutExercise.exercise.tracksDistance {
+            if showDistanceField {
                 Text(distanceUnit == .km ? "KM" : "MI")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.secondary)
-                    .frame(width: 60, alignment: .center)
+                    .frame(width: standardFieldWidth, alignment: .center)
             }
             
-            if workoutExercise.exercise.isTimeBased {
+            if showTimeField {
                 Text("TIME")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.secondary)
-                    .frame(width: 80, alignment: .center)
+                    .frame(width: timeFieldWidth, alignment: .center)
             }
             
-            if !workoutExercise.exercise.isTimeBased {
+            if showRepsField {
                 Text("REPS")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.secondary)
-                    .frame(width: 60, alignment: .center)
+                    .frame(width: standardFieldWidth, alignment: .center)
             }
         }
     }
@@ -417,7 +472,7 @@ struct ExerciseCard: View {
             .frame(height: 44)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(surfaceColor)
+                    .fill(themeManager?.colors.surface ?? Color(.systemBackground)) // Keep surface for button background
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
                             .stroke(isDarkTheme ? Color.white : Color.black, lineWidth: 1)

@@ -9,38 +9,35 @@ struct CounterStatsBottomSheet: View {
     
     var body: some View {
         NavigationView {
-            VStack(spacing: MaterialSpacing.lg) {
+            VStack(spacing: MaterialSpacing.md) {
                 if let stats = stats {
-                    VStack(spacing: MaterialSpacing.md) {
-                        // Stats grid
-                        LazyVGrid(columns: [
-                            GridItem(.flexible()),
-                            GridItem(.flexible())
-                        ], spacing: MaterialSpacing.md) {
-                            StatCard(title: "Yesterday", value: stats.yesterday)
-                            StatCard(title: "Today", value: stats.today)
-                            StatCard(title: "This Week", value: stats.thisWeek)
-                            StatCard(title: "This Month", value: stats.thisMonth)
-                            StatCard(title: "This Year", value: stats.thisYear)
-                            StatCard(title: "All Time", value: stats.allTime)
-                        }
+                    // Stats grid with reduced spacing
+                    LazyVGrid(columns: [
+                        GridItem(.flexible()),
+                        GridItem(.flexible())
+                    ], spacing: MaterialSpacing.sm) {
+                        StatCard(title: "Yesterday", value: stats.yesterday)
+                        StatCard(title: "Today", value: stats.today)
+                        StatCard(title: "This Week", value: stats.thisWeek)
+                        StatCard(title: "This Month", value: stats.thisMonth)
+                        StatCard(title: "This Year", value: stats.thisYear)
+                        StatCard(title: "All Time", value: stats.allTime)
                     }
                 } else {
-                    VStack(spacing: MaterialSpacing.md) {
+                    VStack(spacing: MaterialSpacing.sm) {
                         ProgressView()
-                            .scaleEffect(1.5)
+                            .scaleEffect(1.2)
                             .progressViewStyle(CircularProgressViewStyle(tint: themeManager?.colors.primary ?? LightThemeColors.primary))
                         
                         Text("Loading stats...")
-                            .font(.body)
+                            .font(.caption)
                             .foregroundColor(themeManager?.colors.onSurfaceVariant ?? LightThemeColors.onSurfaceVariant)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(maxWidth: .infinity, alignment: .center)
                 }
-                
-                Spacer()
             }
-            .padding(MaterialSpacing.lg)
+            .padding(MaterialSpacing.md)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(themeManager?.colors.background ?? LightThemeColors.background)
             .navigationTitle("\(counter.name) Stats")
             .navigationBarTitleDisplayMode(.inline)
@@ -53,6 +50,7 @@ struct CounterStatsBottomSheet: View {
                 }
             }
         }
+        .background(themeManager?.colors.background ?? LightThemeColors.background)
     }
 }
 
@@ -63,25 +61,25 @@ struct StatCard: View {
     @Environment(\.themeManager) private var themeManager
     
     var body: some View {
-        VStack(spacing: MaterialSpacing.sm) {
+        VStack(spacing: MaterialSpacing.xs) {
             Text(title)
-                .font(.caption)
+                .font(.caption2)
                 .foregroundColor(themeManager?.colors.onSurfaceVariant ?? LightThemeColors.onSurfaceVariant)
                 .multilineTextAlignment(.center)
             
             Text("\(value)")
-                .font(.title2)
+                .font(.title3)
                 .fontWeight(.bold)
                 .foregroundColor(themeManager?.colors.primary ?? LightThemeColors.primary)
         }
         .frame(maxWidth: .infinity)
-        .padding(MaterialSpacing.md)
+        .padding(MaterialSpacing.sm)
         .background(
             RoundedRectangle(cornerRadius: MaterialCornerRadius.medium)
                 .fill(themeManager?.colors.surface ?? LightThemeColors.surface)
                 .shadow(
                     color: (themeManager?.colors.shadow ?? LightThemeColors.shadow).opacity(0.05),
-                    radius: 2,
+                    radius: 1,
                     x: 0,
                     y: 1
                 )

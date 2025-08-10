@@ -58,6 +58,12 @@ class ExerciseRepositoryImpl: ExerciseRepository {
         }
     }
     
+    func refreshExerciseCache() -> AnyPublisher<[Exercise], Error> {
+        logger.info("🔄 Force refreshing exercise cache")
+        lastCacheUpdate = Date.distantPast // Invalidate cache
+        return getAllExercises()
+    }
+    
     func getExercisesByMuscleGroup(_ muscleGroup: String) -> AnyPublisher<[Exercise], Error> {
         return getAllExercises()
             .map { exercises in
@@ -274,6 +280,18 @@ class ExerciseRepositoryImpl: ExerciseRepository {
         case "lats", "middle back", "lower back", "traps": return "back"
         default: return muscle
         }
+    }
+    
+    // MARK: - Cleanup
+    
+    func onCleared() {
+        clearCache()
+    }
+    
+    func clearCache() {
+        logger.info("🧹 Clearing exercise repository cache")
+        exerciseCache.removeAll()
+        lastCacheUpdate = Date.distantPast
     }
 }
 

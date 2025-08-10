@@ -13,7 +13,9 @@ struct WorkoutItemView: View {
     let workout: Workout
     let onStartClick: () -> Void
     let onRoutineNameClick: () -> Void
+    let onDuplicateClick: () -> Void
     let onEditClick: () -> Void
+    let onDeleteClick: () -> Void
     
     @State private var showOptions = false
     @State private var isPressed = false
@@ -71,9 +73,10 @@ struct WorkoutItemView: View {
                 // Options button - three dots
                 Button(action: { showOptions = true }) {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(themeManager?.colors.onSurface.opacity(0.6) ?? LightThemeColors.onSurface.opacity(0.6))
-                        .frame(width: 24, height: 24)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(themeManager?.colors.onSurface.opacity(0.7) ?? LightThemeColors.onSurface.opacity(0.7))
+                        .frame(width: 44, height: 44) // Much larger touch area
+                        .contentShape(Rectangle()) // Ensures entire frame is tappable
                 }
                 .buttonStyle(.plain)
             }
@@ -91,15 +94,15 @@ struct WorkoutItemView: View {
                         )
                 )
         )
-        .actionSheet(isPresented: $showOptions) {
-            ActionSheet(
-                title: Text(workout.name),
-                buttons: [
-                    .default(Text("Edit")) {
-                        onEditClick()
-                    },
-                    .cancel()
-                ]
+        .sheet(isPresented: $showOptions) {
+            RoutineOptionsSheet(
+                routineName: workout.name,
+                onDismiss: {
+                    showOptions = false
+                },
+                onDuplicate: onDuplicateClick,
+                onEdit: onEditClick,
+                onDelete: onDeleteClick
             )
         }
     }

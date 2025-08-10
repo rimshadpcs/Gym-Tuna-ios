@@ -11,11 +11,11 @@ struct SettingsSection<Content: View>: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: MaterialSpacing.lg) {
+        VStack(alignment: .leading, spacing: MaterialSpacing.sm) {
             Text(title)
                 .font(MaterialTypography.headline6)
                 .foregroundColor(themeManager?.colors.onBackground ?? LightThemeColors.onBackground)
-                .padding(.vertical, MaterialSpacing.sm)
+                .padding(.vertical, 4)
             
             VStack(spacing: 0) {
                 content
@@ -27,6 +27,6 @@ struct SettingsSection<Content: View>: View {
                     .stroke(themeManager?.colors.outline ?? LightThemeColors.outline, lineWidth: 1)
             )
         }
-        .padding(.vertical, MaterialSpacing.sm)
+        .padding(.vertical, 4)
     }
 }

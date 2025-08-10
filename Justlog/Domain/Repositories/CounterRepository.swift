@@ -10,4 +10,8 @@ protocol CounterRepository {
     func decrementCounter(_ counterId: String, by amount: Int) async throws
     func addCounterEntry(_ entry: CounterEntry) async throws
     func getCounterStats(_ counterId: String) async throws -> CounterStats
+    
+    // MARK: - Cleanup
+    func onCleared()
+    func clearCache()
 }

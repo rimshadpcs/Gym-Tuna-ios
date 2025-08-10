@@ -57,7 +57,6 @@ struct CounterView: View {
                         ForEach(viewModel.counters) { counter in
                             CounterCard(
                                 counter: counter,
-                                hasPendingChanges: viewModel.hasPendingChanges(counter.id),
                                 onIncrement: {
                                     viewModel.incrementCounter(counter.id)
                                 },
@@ -155,6 +154,8 @@ struct CounterView: View {
                     counter: counter,
                     stats: viewModel.counterStats[counter.id]
                 )
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
             case .premium:
                 PremiumUpgradeDialog(
                     onDismiss: {

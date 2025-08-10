@@ -42,6 +42,7 @@ protocol WorkoutRepository {
     
     // MARK: - Cleanup
     func onCleared()
+    func clearCache()
 }
 
 // MARK: - Repository Error Types

@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct IOSBackButton: View {
+    @Environment(\.themeManager) private var themeManager
     let action: () -> Void
     let text: String
     
@@ -21,11 +22,11 @@ struct IOSBackButton: View {
             HStack(spacing: 4) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(MaterialColors.primary)
+                    .foregroundColor(themeManager?.colors.primary ?? LightThemeColors.primary)
                 
                 Text(text)
                     .font(.system(size: 17))
-                    .foregroundColor(MaterialColors.primary)
+                    .foregroundColor(themeManager?.colors.primary ?? LightThemeColors.primary)
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 8)
