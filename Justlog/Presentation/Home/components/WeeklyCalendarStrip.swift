@@ -57,20 +57,26 @@ struct WeeklyCalendarStrip: View {
                 }
             }
             
-            // Calendar Days - more compact for small screens
+            // Calendar Days - responsive for all screen sizes
             GeometryReader { geometry in
+                let availableWidth = geometry.size.width
+                let dayWidth = availableWidth / CGFloat(weekDates.count)
+                let isSmallScreen = availableWidth < 300 // iPhone SE and similar
+                
                 HStack(spacing: 0) {
                     ForEach(weekDates, id: \.date) { day in
                         DayColumn(
                             day: day,
                             isSelected: Calendar.current.isDate(day.date, inSameDayAs: selectedDate),
-                            onDateSelected: onDateSelected
+                            onDateSelected: onDateSelected,
+                            dayWidth: dayWidth,
+                            isSmallScreen: isSmallScreen
                         )
-                        .frame(width: geometry.size.width / CGFloat(weekDates.count))
+                        .frame(width: dayWidth)
                     }
                 }
             }
-            .frame(height: 60)
+            .frame(height: 70)
         }
         .padding(.vertical, 8)
     }
@@ -82,6 +88,8 @@ struct DayColumn: View {
     let day: WeeklyCalendarDay
     let isSelected: Bool
     let onDateSelected: (Date) -> Void
+    let dayWidth: CGFloat
+    let isSmallScreen: Bool
     
     private var isLightTheme: Bool {
         switch themeManager?.currentTheme {
@@ -94,13 +102,15 @@ struct DayColumn: View {
     
     var body: some View {
         Button(action: { onDateSelected(day.date) }) {
-            VStack(spacing: 4) {
-                // Day of week label
-                Text(day.dayName.prefix(3).uppercased())
-                    .font(.system(size: 12, weight: .regular))
+            VStack(spacing: isSmallScreen ? 2 : 4) {
+                // Day of week label - smaller on small screens
+                Text(day.dayName.prefix(isSmallScreen ? 2 : 3).uppercased())
+                    .font(.system(size: isSmallScreen ? 10 : 12, weight: .regular))
                     .foregroundColor(secondaryContentColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                 
-                // Day circle
+                // Day circle - responsive sizing
                 ZStack {
                     Circle()
                         .fill(fillColor)
@@ -110,13 +120,25 @@ struct DayColumn: View {
                         )
                     
                     Text("\(day.dayNumber)")
-                        .font(.system(size: 14, weight: textWeight))
+                        .font(.system(size: isSmallScreen ? 12 : 14, weight: textWeight))
                         .foregroundColor(textColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 }
-                .frame(width: 32, height: 32)
+                .frame(width: circleSize, height: circleSize)
             }
         }
         .buttonStyle(.plain)
+    }
+    
+    // MARK: - Responsive Properties
+    
+    private var circleSize: CGFloat {
+        if isSmallScreen {
+            return min(28, dayWidth - 8) // Ensure circle fits within day width with padding
+        } else {
+            return min(32, dayWidth - 8)
+        }
     }
     
     // MARK: - Computed Properties (matching Android logic exactly)

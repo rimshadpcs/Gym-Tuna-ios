@@ -102,7 +102,11 @@ struct ExerciseSearchView: View {
         .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemGray6))
+                .fill(themeManager?.colors.background ?? LightThemeColors.background)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(themeManager?.colors.outline ?? LightThemeColors.outline, lineWidth: 1)
+                )
         )
     }
     

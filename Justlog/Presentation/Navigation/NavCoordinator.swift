@@ -38,8 +38,18 @@ class NavCoordinator: ObservableObject {
         
         // Parse route to determine screen and parameters
         if let screen = parseRoute(route) {
-            currentRoute = route
-            navigate(to: screen)
+            currentRoute = route  // Set the full route with parameters FIRST
+            
+            // Navigate to screen without overwriting currentRoute
+            if screen == .auth {
+                // Clear stack when going to auth
+                navigationStack.removeAll()
+                currentScreen = screen
+            } else {
+                navigationStack.append(currentScreen)
+                currentScreen = screen
+            }
+            print("\(logger): Navigation complete - currentRoute: '\(currentRoute)', currentScreen: \(screen.route)")
         }
     }
     

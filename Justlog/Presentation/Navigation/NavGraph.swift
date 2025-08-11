@@ -120,16 +120,30 @@ struct NavGraph: View {
                 coordinator.navigate(to: .activeWorkout)
             },
             onStartRoutine: { routineId in
+                print("🚀 NavGraph: onStartRoutine called with routineId: \(routineId)")
+                print("🚀 NavGraph: Available workouts: \(homeViewModel.workouts.map { "\($0.name) (\($0.id))" })")
+                
                 // Find the routine to get its name
                 if let routine = homeViewModel.workouts.first(where: { $0.id == routineId }) {
+                    print("🚀 NavGraph: Found routine: \(routine.name) with \(routine.exercises.count) exercises")
                     let route = Screen.workout.withRoutine(routineId: routineId, routineName: routine.name)
+                    print("🚀 NavGraph: Generated route: \(route)")
                     coordinator.navigateWithRoute(route)
                 } else {
+                    print("❌ NavGraph: Routine not found with id: \(routineId)")
+                    print("❌ NavGraph: Available workout IDs: \(homeViewModel.workouts.map { $0.id })")
                     coordinator.navigate(to: .workout)
                 }
             },
             onEditRoutine: { routineId in
+                print("✏️ NavGraph: onEditRoutine called with routineId: \(routineId)")
+                if let routine = homeViewModel.workouts.first(where: { $0.id == routineId }) {
+                    print("✏️ NavGraph: Found routine to edit: \(routine.name) with \(routine.exercises.count) exercises")
+                } else {
+                    print("❌ NavGraph: Routine not found for editing with id: \(routineId)")
+                }
                 let route = Screen.createRoutine.withRoutineId(routineId)
+                print("✏️ NavGraph: Edit route: \(route)")
                 coordinator.navigateWithRoute(route)
             },
             onNewRoutine: {
@@ -295,9 +309,17 @@ struct NavGraph: View {
     }
     
     private var workoutScreenView: some View {
-        if let routineId = coordinator.getQueryParam(for: "routineId"),
-           let routineName = coordinator.getQueryParam(for: "routineName") {
-            WorkoutScreen(
+        let routineId = coordinator.getQueryParam(for: "routineId")
+        let routineName = coordinator.getQueryParam(for: "routineName")
+        
+        print("🔍 NavGraph: workoutScreenView called")
+        print("🔍 NavGraph: Current route: '\(coordinator.currentRoute)'")
+        print("🔍 NavGraph: routineId: '\(routineId ?? "nil")'")
+        print("🔍 NavGraph: routineName: '\(routineName ?? "nil")'")
+        
+        if let routineId = routineId, let routineName = routineName {
+            print("✅ NavGraph: Creating WorkoutScreen with routine: \(routineName) (\(routineId))")
+            return AnyView(WorkoutScreen(
                 routineId: routineId,
                 routineName: routineName,
                 onBack: {
@@ -315,10 +337,11 @@ struct NavGraph: View {
                 onNavigateToSubscription: {
                     coordinator.navigate(to: .subscription)
                 }
-            )
+            ))
         } else {
             // Quick workout - no routine
-            WorkoutScreen(
+            print("⚠️ NavGraph: Creating Quick Workout (missing params)")
+            return AnyView(WorkoutScreen(
                 routineId: nil,
                 routineName: "Quick Workout",
                 onBack: {
@@ -336,7 +359,7 @@ struct NavGraph: View {
                 onNavigateToSubscription: {
                     coordinator.navigate(to: .subscription)
                 }
-            )
+            ))
         }
     }
     
