@@ -6,13 +6,13 @@ struct RoutinePreviewView: View {
     
     let routineId: String
     let onBack: () -> Void
-    let onStartWorkout: (String) -> Void
+    let onStartWorkout: (String, String) -> Void
     
     init(
         routineId: String,
         workoutRepository: WorkoutRepository,
         onBack: @escaping () -> Void,
-        onStartWorkout: @escaping (String) -> Void
+        onStartWorkout: @escaping (String, String) -> Void
     ) {
         self.routineId = routineId
         self.onBack = onBack
@@ -196,7 +196,9 @@ struct RoutinePreviewView: View {
                     .background(colors.outline.opacity(0.5))
                 
                 Button(action: {
-                    onStartWorkout(routineId)
+                    if let routine = viewModel.routine {
+                        onStartWorkout(routine.id, routine.name)
+                    }
                 }) {
                     HStack(spacing: MaterialSpacing.md) {
                         Image(themeManager?.currentTheme == .dark ? "play_dark" : "play")
@@ -208,8 +210,8 @@ struct RoutinePreviewView: View {
                             .vagFont(size: 16, weight: .semibold)
                     }
                     .foregroundColor(colors.onPrimary)
-                    .padding(.vertical, MaterialSpacing.lg)
                     .frame(maxWidth: .infinity)
+                    .padding(.vertical, MaterialSpacing.lg)
                 }
                 .background(
                     RoundedRectangle(cornerRadius: 12)

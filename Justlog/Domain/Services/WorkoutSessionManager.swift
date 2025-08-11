@@ -155,6 +155,13 @@ class WorkoutSessionManager: ObservableObject {
     
     func discardWorkout() {
         print("🏋️ Discarding workout")
+        print("🏋️ Discarding workout - current state: \(workoutState?.routineName ?? "nil")")
+        clearSession()
+    }
+    
+    // Public method to force clear session (for debugging)
+    func forceResetSession() {
+        print("🔧 Force resetting workout session")
         clearSession()
     }
     
@@ -412,6 +419,9 @@ class WorkoutSessionManager: ObservableObject {
     }
     
     private func clearSession() {
+        print("🧹 WorkoutSessionManager: Starting clearSession()")
+        print("🧹 WorkoutSessionManager: Before clear - workoutState: \(workoutState?.routineName ?? "nil")")
+        
         stopTimer()
         
         workoutState = nil
@@ -434,6 +444,7 @@ class WorkoutSessionManager: ObservableObject {
         userDefaults.removeObject(forKey: Keys.isActive)
         userDefaults.removeObject(forKey: Keys.currentExercise)
         
-        print("Session cleared")
+        print("🧹 WorkoutSessionManager: Session cleared - workoutState is now: \(workoutState?.routineName ?? "nil")")
+        print("🧹 WorkoutSessionManager: Published workoutState should trigger UI update")
     }
 }

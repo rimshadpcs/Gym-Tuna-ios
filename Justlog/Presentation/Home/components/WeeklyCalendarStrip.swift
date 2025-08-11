@@ -57,19 +57,21 @@ struct WeeklyCalendarStrip: View {
                 }
             }
             
-            // Calendar Days - more compact
-            HStack(spacing: 0) {
-                ForEach(weekDates, id: \.date) { day in
-                    DayColumn(
-                        day: day,
-                        isSelected: Calendar.current.isDate(day.date, inSameDayAs: selectedDate),
-                        onDateSelected: onDateSelected
-                    )
-                    .frame(maxWidth: .infinity)
+            // Calendar Days - more compact for small screens
+            GeometryReader { geometry in
+                HStack(spacing: 0) {
+                    ForEach(weekDates, id: \.date) { day in
+                        DayColumn(
+                            day: day,
+                            isSelected: Calendar.current.isDate(day.date, inSameDayAs: selectedDate),
+                            onDateSelected: onDateSelected
+                        )
+                        .frame(width: geometry.size.width / CGFloat(weekDates.count))
+                    }
                 }
             }
+            .frame(height: 60)
         }
-        .padding(.horizontal, MaterialSpacing.lg)
         .padding(.vertical, 8)
     }
 }
@@ -115,7 +117,6 @@ struct DayColumn: View {
             }
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, 4)
     }
     
     // MARK: - Computed Properties (matching Android logic exactly)

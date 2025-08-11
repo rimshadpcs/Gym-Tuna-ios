@@ -20,6 +20,9 @@ class NavCoordinator: ObservableObject {
     func navigate(to screen: Screen) {
         print("\(logger): Navigating to \(screen.route)")
         
+        // Clear route parameters when using simple navigation
+        currentRoute = screen.route
+        
         if screen == .auth {
             // Clear stack when going to auth
             navigationStack.removeAll()

@@ -7,12 +7,14 @@ class AuthRepositoryImpl: AuthRepository {
     private let auth = Auth.auth()
     private let userPreferences: UserPreferences
     private let googleSignInHelper: GoogleSignInHelper
+    private let appleSignInHelper: AppleSignInHelper
     private let firestore = Firestore.firestore()
     private let logger = "AuthRepository"
     
-    init(userPreferences: UserPreferences, googleSignInHelper: GoogleSignInHelper) {
+    init(userPreferences: UserPreferences, googleSignInHelper: GoogleSignInHelper, appleSignInHelper: AppleSignInHelper) {
         self.userPreferences = userPreferences
         self.googleSignInHelper = googleSignInHelper
+        self.appleSignInHelper = appleSignInHelper
     }
     
     func signInWithGoogle() async throws {
@@ -32,6 +34,18 @@ class AuthRepositoryImpl: AuthRepository {
         try await signInWithGoogle()
     }
     
+    func signInWithApple() async throws {
+        print("\(logger): Starting Apple sign in process in repository")
+        try await appleSignInHelper.startSignIn()
+        
+        if auth.currentUser != nil {
+            print("\(logger): Firebase user verified: \(auth.currentUser?.email ?? "no email")")
+            userPreferences.setUserSignedIn(true)
+        } else {
+            throw AuthRepositoryError.firebaseSignInFailed
+        }
+    }
+    
     func signOut() async throws {
         print("\(logger): Starting sign out process")
         
@@ -39,6 +53,10 @@ class AuthRepositoryImpl: AuthRepository {
             // First sign out from Google
             try await googleSignInHelper.signOut()
             print("\(logger): Google sign out completed")
+            
+            // Sign out from Apple (no-op, but good for consistency)
+            try await appleSignInHelper.signOut()
+            print("\(logger): Apple sign out completed")
             
             // Then clear Firebase auth
             try auth.signOut()
@@ -101,8 +119,9 @@ class AuthRepositoryImpl: AuthRepository {
                 print("\(logger): Error deleting user data from Firestore: \(error)")
             }
             
-            // Step 2: Sign out from Google
+            // Step 2: Sign out from providers
             try await googleSignInHelper.signOut()
+            try await appleSignInHelper.signOut()
             
             // Step 3: Delete Firebase Auth user
             try await currentUser.delete()

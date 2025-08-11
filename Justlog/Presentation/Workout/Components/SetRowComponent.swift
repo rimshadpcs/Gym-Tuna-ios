@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 // Define FocusableField enum outside the struct
 enum FocusableField: Hashable {
@@ -46,6 +47,11 @@ struct SetRowComponent: View {
     @State private var dragOffset: CGFloat = 0
     @State private var isSwipeToDeleteActive: Bool = false
     @State private var showingDeleteHint: Bool = false
+    
+    // Haptic feedback generators
+    @State private var lightImpactFeedback = UIImpactFeedbackGenerator(style: .light)
+    @State private var mediumImpactFeedback = UIImpactFeedbackGenerator(style: .medium)
+    @State private var selectionFeedback = UISelectionFeedbackGenerator()
     
     private var themeManager: ThemeManager {
         optionalThemeManager ?? ThemeManager(userPreferences: UserPreferences.shared)
@@ -141,7 +147,14 @@ struct SetRowComponent: View {
                 .onChanged { value in
                     let translation = value.translation.width
                     if translation < 0 {
+                        let previousOffset = dragOffset
                         dragOffset = max(translation, -200)
+                        
+                        // Haptic feedback when delete hint appears
+                        if !showingDeleteHint && dragOffset < -40 {
+                            lightImpactFeedback.impactOccurred()
+                        }
+                        
                         showingDeleteHint = dragOffset < -40
                     }
                 }
@@ -149,6 +162,7 @@ struct SetRowComponent: View {
                     let translation = value.translation.width
                     if translation < -120 {
                         // Delete threshold reached (70% of 200)
+                        mediumImpactFeedback.impactOccurred()
                         withAnimation(.easeOut(duration: 0.3)) {
                             dragOffset = -300
                         }
@@ -157,6 +171,7 @@ struct SetRowComponent: View {
                         }
                     } else {
                         // Snap back
+                        lightImpactFeedback.impactOccurred()
                         withAnimation(.easeOut(duration: 0.3)) {
                             dragOffset = 0
                             showingDeleteHint = false
@@ -167,6 +182,10 @@ struct SetRowComponent: View {
         .clipped()
         .onAppear {
             updateTextFields()
+            // Prepare haptic feedback generators for better responsiveness
+            lightImpactFeedback.prepare()
+            mediumImpactFeedback.prepare()
+            selectionFeedback.prepare()
         }
         .onChange(of: set) { _ in
             // Only update if no field is focused to prevent value disappearance
@@ -381,6 +400,13 @@ struct SetRowComponent: View {
         Checkbox(
             checked: set.isCompleted,
             onCheckedChange: { isChecked in
+                // Haptic feedback for set completion
+                if isChecked {
+                    mediumImpactFeedback.impactOccurred()
+                } else {
+                    lightImpactFeedback.impactOccurred()
+                }
+                
                 onCompleted(isChecked)
                 if isChecked {
                     // Auto-focus next set's first input field
@@ -423,10 +449,12 @@ struct SetRowComponent: View {
         let nextIndex = currentIndex + 1
         if nextIndex < fieldsInOrder.count {
             // Move to next field in same row
+            selectionFeedback.selectionChanged()
             focusedField.wrappedValue = fieldsInOrder[nextIndex]
         } else {
             // No more fields in this row - complete the set and dismiss keyboard
             if !set.isCompleted {
+                mediumImpactFeedback.impactOccurred()
                 onCompleted(true)
                 if isTimeBased && isTimerRunning {
                     isTimerRunning = false
@@ -741,7 +769,10 @@ struct TimeInputField: View {
             
             // Timer controls
             HStack(spacing: 0) {
-                Button(action: onStartStopTimer) {
+                Button(action: {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    onStartStopTimer()
+                }) {
                     Image(isTimerRunning ? (isDarkTheme ? "stop_dark" : "stop") : (isDarkTheme ? "play_dark" : "play"))
                         .resizable()
                         .aspectRatio(contentMode: .fit)
@@ -750,7 +781,10 @@ struct TimeInputField: View {
                 .frame(width: 24, height: 24)
                 
                 if !isTimerRunning && (Int(time) ?? 0) > 0 {
-                    Button(action: onResetTimer) {
+                    Button(action: {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        onResetTimer()
+                    }) {
                         Image(isDarkTheme ? "reset_dark" : "reset")
                             .resizable()
                             .aspectRatio(contentMode: .fit)

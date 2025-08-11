@@ -343,7 +343,14 @@ struct SelectedExerciseItem: View {
             }
         }
         .padding(MaterialSpacing.cardPadding)
-        .materialCard()
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(themeManager?.colors.surface ?? LightThemeColors.surface)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(themeManager?.colors.outline ?? LightThemeColors.outline, lineWidth: 1)
+                )
+        )
     }
 }
 

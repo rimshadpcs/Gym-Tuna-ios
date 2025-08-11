@@ -9,13 +9,15 @@ class AuthViewModel: ObservableObject {
     
     private let authRepository: AuthRepository
     private let googleSignInHelper: GoogleSignInHelper
+    private let appleSignInHelper: AppleSignInHelper
     private let userPreferences: UserPreferences
     private let dependencyContainer: DependencyContainer
     private let logger = "AuthViewModel"
     
-    init(authRepository: AuthRepository, googleSignInHelper: GoogleSignInHelper, userPreferences: UserPreferences, dependencyContainer: DependencyContainer = DependencyContainer.shared) {
+    init(authRepository: AuthRepository, googleSignInHelper: GoogleSignInHelper, appleSignInHelper: AppleSignInHelper, userPreferences: UserPreferences, dependencyContainer: DependencyContainer = DependencyContainer.shared) {
         self.authRepository = authRepository
         self.googleSignInHelper = googleSignInHelper
+        self.appleSignInHelper = appleSignInHelper
         self.userPreferences = userPreferences
         self.dependencyContainer = dependencyContainer
         
@@ -45,6 +47,40 @@ class AuthViewModel: ObservableObject {
         } catch {
             print("\(logger): Sign in failed: \(error)")
             authState = .error(error.localizedDescription)
+        }
+    }
+    
+    func startAppleSignIn() async {
+        do {
+            print("\(logger): Starting Apple sign in")
+            authState = .loading
+            print("\(logger): Processing Apple sign in")
+            
+            try await authRepository.signInWithApple()
+            
+            print("\(logger): Apple sign in successful")
+            
+            // Set user properties in analytics
+            if let user = await authRepository.getCurrentUser() {
+                AnalyticsManager.shared.setUserId(user.id)
+                AnalyticsManager.shared.logUserLogin(method: "apple")
+                setInitialUserProperties()
+            }
+            
+            authState = .success
+            navigationEvent.send()
+            
+        } catch {
+            print("\(logger): Apple sign in failed: \(error)")
+            
+            // Handle specific Apple Sign In configuration error
+            if let appleError = error as? AppleSignInError, appleError == .configurationError {
+                authState = .error("Sign in with Apple requires completing Apple Developer Program setup ($99 fee + configuration)")
+            } else if error.localizedDescription.contains("1000") {
+                authState = .error("Sign in with Apple is not configured yet. Please complete Apple Developer Program setup.")
+            } else {
+                authState = .error(error.localizedDescription)
+            }
         }
     }
     

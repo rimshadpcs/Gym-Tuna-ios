@@ -84,10 +84,12 @@ class WorkoutViewModel: ObservableObject {
         
         // Initialize dependencies (these would normally be injected)
         let googleSignInHelper = GoogleSignInHelper()
+        let appleSignInHelper = AppleSignInHelper()
         self.userPreferences = UserPreferences.shared
         self.authRepository = AuthRepositoryImpl(
             userPreferences: self.userPreferences, 
-            googleSignInHelper: googleSignInHelper
+            googleSignInHelper: googleSignInHelper,
+            appleSignInHelper: appleSignInHelper
         )
         self.workoutRepository = WorkoutRepositoryImpl(authRepository: self.authRepository)
         self.subscriptionRepository = SubscriptionRepositoryImpl()

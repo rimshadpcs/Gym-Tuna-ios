@@ -90,10 +90,6 @@ struct ExerciseCard: View {
             }
         }
         .background(backgroundColor)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(themeManager?.colors.outline ?? LightThemeColors.outline, lineWidth: 1)
-        )
         .cornerRadius(12)
         .onAppear {
             notes = workoutExercise.notes

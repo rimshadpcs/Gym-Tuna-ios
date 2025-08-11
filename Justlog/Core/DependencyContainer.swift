@@ -16,7 +16,8 @@ class DependencyContainer: ObservableObject {
     // MARK: - Repositories
     private(set) lazy var authRepository: AuthRepository = AuthRepositoryImpl(
         userPreferences: userPreferences,
-        googleSignInHelper: googleSignInHelper
+        googleSignInHelper: googleSignInHelper,
+        appleSignInHelper: appleSignInHelper
     )
     
     private(set) lazy var workoutRepository: WorkoutRepository = WorkoutRepositoryImpl(
@@ -48,6 +49,7 @@ class DependencyContainer: ObservableObject {
     private(set) lazy var userPreferences = UserPreferences.shared
     private(set) lazy var restTimerManager = RestTimerManager()
     private(set) lazy var googleSignInHelper = GoogleSignInHelper()
+    private(set) lazy var appleSignInHelper = AppleSignInHelper()
     private(set) lazy var workoutSessionManager = WorkoutSessionManager.shared
     
     // MARK: - Initialization
@@ -61,6 +63,7 @@ class DependencyContainer: ObservableObject {
         return AuthViewModel(
             authRepository: authRepository,
             googleSignInHelper: googleSignInHelper,
+            appleSignInHelper: appleSignInHelper,
             userPreferences: userPreferences,
             dependencyContainer: self
         )

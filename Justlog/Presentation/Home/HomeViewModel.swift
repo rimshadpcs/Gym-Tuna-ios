@@ -112,6 +112,9 @@ class HomeViewModel: ObservableObject {
             .sink { [weak self] sessionState in
                 guard let self = self else { return }
                 
+                print("🏠 HomeViewModel: Received workout session change")
+                print("🏠 HomeViewModel: sessionState: \(sessionState?.routineName ?? "nil")")
+                
                 if let state = sessionState {
                     let workoutId = state.routineId ?? "quick_workout"
                     self.activeWorkout = Workout(
@@ -122,8 +125,10 @@ class HomeViewModel: ObservableObject {
                         createdAt: Date(),
                         colorHex: nil
                     )
+                    print("🏠 HomeViewModel: Set activeWorkout to: \(state.routineName)")
                 } else {
                     self.activeWorkout = nil
+                    print("🏠 HomeViewModel: Cleared activeWorkout (set to nil)")
                 }
             }
             .store(in: &cancellables)
@@ -139,6 +144,17 @@ class HomeViewModel: ObservableObject {
     func refreshData() async {
         await loadWorkouts()
         await loadSubscription()
+    }
+    
+    func clearData() {
+        print("🧹 HomeViewModel: Clearing all user data")
+        workouts = []
+        weekDates = []
+        currentUser = nil
+        subscription = UserSubscription() // Reset to default free subscription
+        isLoading = false
+        errorMessage = nil
+        activeWorkout = nil
     }
     
     func selectDate(_ date: Date) {
@@ -177,7 +193,10 @@ class HomeViewModel: ObservableObject {
     }
     
     func endActiveWorkout() {
+        print("🏠 HomeViewModel: User discarding active workout")
+        print("🏠 HomeViewModel: Before discard - activeWorkout: \(activeWorkout?.name ?? "nil")")
         workoutSessionManager.discardWorkout()
+        print("🏠 HomeViewModel: After discard called")
     }
     
     func resolveConflict(replaceActive: Bool) {

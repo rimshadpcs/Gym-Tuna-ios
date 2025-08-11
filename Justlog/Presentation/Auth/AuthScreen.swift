@@ -35,11 +35,18 @@ struct AuthScreen: View {
             Group {
                 switch viewModel.authState {
                 case .initial:
-                    SignInScreen {
-                        Task {
-                            await viewModel.startGoogleSignIn()
+                    SignInScreen(
+                        onGoogleSignInClick: {
+                            Task {
+                                await viewModel.startGoogleSignIn()
+                            }
+                        },
+                        onAppleSignInClick: {
+                            Task {
+                                await viewModel.startAppleSignIn()
+                            }
                         }
-                    }
+                    )
                 case .loading:
                     SplashScreen()
                 case .success:
@@ -50,6 +57,11 @@ struct AuthScreen: View {
                         onGoogleSignInClick: {
                             Task {
                                 await viewModel.startGoogleSignIn()
+                            }
+                        },
+                        onAppleSignInClick: {
+                            Task {
+                                await viewModel.startAppleSignIn()
                             }
                         }
                     )
@@ -88,6 +100,7 @@ struct SplashScreen: View {
 
 struct SignInScreen: View {
     let onGoogleSignInClick: () -> Void
+    let onAppleSignInClick: () -> Void
     
     var body: some View {
         VStack(spacing: 48) {
@@ -105,7 +118,7 @@ struct SignInScreen: View {
                 }
             
             VStack(spacing: 16) {
-                SignInWithAppleButton()
+                SignInWithAppleButton(onClick: onAppleSignInClick)
                 SignInButton(onClick: onGoogleSignInClick)
             }
         }
@@ -118,10 +131,14 @@ struct SignInScreen: View {
 struct SignInErrorScreen: View {
     let errorMessage: String?
     let onGoogleSignInClick: () -> Void
+    let onAppleSignInClick: () -> Void
     
     var body: some View {
         VStack(spacing: 24) {
-            SignInScreen(onGoogleSignInClick: onGoogleSignInClick)
+            SignInScreen(
+                onGoogleSignInClick: onGoogleSignInClick,
+                onAppleSignInClick: onAppleSignInClick
+            )
             
             if let errorMessage = errorMessage,
                !errorMessage.lowercased().contains("cancelled") {
@@ -165,10 +182,12 @@ struct SignInButton: View {
 }
 
 struct SignInWithAppleButton: View {
+    let onClick: () -> Void
+    
     var body: some View {
         Button(action: {
             print("AuthScreen: Sign in with Apple clicked")
-            // TODO: Implement Apple Sign-In
+            onClick()
         }) {
             HStack(spacing: 8) {
                 Image(systemName: "applelogo")

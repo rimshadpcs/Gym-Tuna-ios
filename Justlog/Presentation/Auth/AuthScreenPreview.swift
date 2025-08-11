@@ -7,6 +7,7 @@ struct AuthScreenPreview: View {
             viewModel: AuthViewModel(
                 authRepository: MockAuthRepository(),
                 googleSignInHelper: GoogleSignInHelper(),
+                appleSignInHelper: AppleSignInHelper(),
                 userPreferences: UserPreferences()
             ),
             onNavigateToHome: {
@@ -23,6 +24,10 @@ class MockAuthRepository: AuthRepository {
     }
     
     func signInWithGoogleIntent() async throws {
+        // Mock implementation
+    }
+    
+    func signInWithApple() async throws {
         // Mock implementation
     }
     

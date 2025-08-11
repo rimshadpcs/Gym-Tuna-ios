@@ -133,6 +133,11 @@ struct NavGraph: View {
                 coordinator.navigateWithRoute(route)
             },
             onNewRoutine: {
+                // Clear any existing routine state when creating new routine
+                print("🆕 NavGraph: Creating new routine - clearing currentRoutineId")
+                currentRoutineId = nil
+                isInCreateRoutineFlow = false
+                createRoutineViewModel = nil
                 coordinator.navigate(to: .createRoutine)
             },
             onNavigateToSearch: {
@@ -167,8 +172,10 @@ struct NavGraph: View {
         let routineId = routeParameters["routineId"]
         
         print("🔍 NavGraph: createRoutineScreenView - currentRoute: '\(coordinator.currentRoute)'")
+        print("🔍 NavGraph: Expected route for new routine: 'create_routine'")
         print("🔍 NavGraph: routeParameters: \(routeParameters)")
         print("🔍 NavGraph: extracted routineId: '\(routineId ?? "nil")'")
+        print("🔍 NavGraph: isNewRoutine: \(routineId == nil)")
         
         return CreateRoutineViewContainer(
             routineId: routineId,
@@ -368,9 +375,9 @@ struct NavGraph: View {
                         routinePreviewId = nil
                         coordinator.pop()
                     },
-                    onStartWorkout: { workoutId in
+                    onStartWorkout: { routineId, routineName in
                         // Navigate to workout screen with the routine
-                        coordinator.navigateToWorkout?(workoutId, nil)
+                        coordinator.navigateToWorkout?(routineId, routineName)
                     }
                 )
             } else {
@@ -394,8 +401,7 @@ struct NavGraph: View {
                 coordinator.navigate(to: .auth)
             }
             // Clear HomeViewModel data when user logs out to prevent showing old data
-            homeViewModel.workouts = []
-            homeViewModel.currentUser = nil
+            homeViewModel.clearData()
         case .loading:
             break // Stay on current screen
         }

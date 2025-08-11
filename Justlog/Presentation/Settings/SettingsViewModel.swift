@@ -147,15 +147,16 @@ class SettingsViewModel: ObservableObject {
     
     func deleteAccount() {
         Task {
-            do {
-                print("Starting account deletion")
-                // TODO: Implement actual account deletion in AuthRepository
-                try await authRepository.signOut()
+            print("Starting account deletion")
+            let result = await authRepository.deleteAccount()
+            
+            switch result {
+            case .success:
                 await userPreferences.clearPreferences()
-                print("Account deletion completed")
-            } catch {
+                print("Account deletion completed successfully")
+            case .failure(let error):
                 print("Error during account deletion: \(error)")
-                errorMessage = "Failed to delete account"
+                errorMessage = "Failed to delete account: \(error.localizedDescription)"
             }
         }
     }

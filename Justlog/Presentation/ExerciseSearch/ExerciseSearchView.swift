@@ -367,7 +367,7 @@ struct ExerciseItemView: View {
 
 #Preview {
     ExerciseSearchView(
-        exerciseRepository: ExerciseRepositoryImpl(authRepository: AuthRepositoryImpl(userPreferences: UserPreferences.shared, googleSignInHelper: GoogleSignInHelper())),
+        exerciseRepository: ExerciseRepositoryImpl(authRepository: AuthRepositoryImpl(userPreferences: UserPreferences.shared, googleSignInHelper: GoogleSignInHelper(), appleSignInHelper: AppleSignInHelper())),
         onBack: {},
         onExerciseSelected: { _ in },
         onCreateExercise: {}
