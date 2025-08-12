@@ -14,6 +14,7 @@ struct WorkoutExercise: Codable, Equatable {
     let isSuperset: Bool
     let supersetGroup: Int?
     let isDropset: Bool
+    let order: Int // Add this
     
     init(
         exercise: Exercise,
@@ -21,7 +22,8 @@ struct WorkoutExercise: Codable, Equatable {
         notes: String = "",
         isSuperset: Bool = false,
         supersetGroup: Int? = nil,
-        isDropset: Bool = false
+        isDropset: Bool = false,
+        order: Int = 0 // Add this
     ) {
         self.exercise = exercise
         self.sets = sets
@@ -29,5 +31,6 @@ struct WorkoutExercise: Codable, Equatable {
         self.isSuperset = isSuperset
         self.supersetGroup = supersetGroup
         self.isDropset = isDropset
+        self.order = order
     }
 }

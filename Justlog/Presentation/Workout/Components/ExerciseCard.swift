@@ -347,31 +347,36 @@ struct ExerciseCard: View {
     }
     
     private var restTimerView: some View {
-        // Only show if timer is running or paused
-        if viewModel.isRestTimerRunning || viewModel.isRestTimerPaused {
-            RestTimerButton(
-                isRunning: viewModel.isRestTimerRunning,
-                remainingTime: viewModel.restTimerRemaining,
-                totalTime: viewModel.restTimerTotal,
-                isPaused: viewModel.isRestTimerPaused,
-                onStart: { duration in viewModel.startRestTimer(duration) },
-                onStop: {
-                    viewModel.stopRestTimer()
-                    // Timer will disappear automatically since isRunning becomes false
-                },
-                onPauseResume: { viewModel.pauseResumeRestTimer() }
-            )
-        } else {
-            // Show start timer button
-            RestTimerButton(
-                isRunning: false,
-                remainingTime: 0,
-                totalTime: 0,
-                isPaused: false,
-                onStart: { duration in viewModel.startRestTimer(duration) },
-                onStop: { viewModel.stopRestTimer() },
-                onPauseResume: { viewModel.pauseResumeRestTimer() }
-            )
+        Group {
+            // Only show running timer if this specific exercise started it
+            let isThisExerciseTimerActive = viewModel.activeRestTimerExerciseId == workoutExercise.exercise.id
+            let shouldShowRunningTimer = (viewModel.isRestTimerRunning || viewModel.isRestTimerPaused) && isThisExerciseTimerActive
+            
+            if shouldShowRunningTimer {
+                RestTimerButton(
+                    isRunning: viewModel.isRestTimerRunning,
+                    remainingTime: viewModel.restTimerRemaining,
+                    totalTime: viewModel.restTimerTotal,
+                    isPaused: viewModel.isRestTimerPaused,
+                    onStart: { duration in viewModel.startRestTimer(duration, exerciseId: workoutExercise.exercise.id) },
+                    onStop: {
+                        viewModel.stopRestTimer()
+                        // Timer will disappear automatically since isRunning becomes false
+                    },
+                    onPauseResume: { viewModel.pauseResumeRestTimer() }
+                )
+            } else {
+                // Show start timer button (only if no other timer is running, or if this exercise's timer is stopped)
+                RestTimerButton(
+                    isRunning: false,
+                    remainingTime: 0,
+                    totalTime: 0,
+                    isPaused: false,
+                    onStart: { duration in viewModel.startRestTimer(duration, exerciseId: workoutExercise.exercise.id) },
+                    onStop: { viewModel.stopRestTimer() },
+                    onPauseResume: { viewModel.pauseResumeRestTimer() }
+                )
+            }
         }
     }
     

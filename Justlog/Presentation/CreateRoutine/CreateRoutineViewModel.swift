@@ -209,8 +209,8 @@ class CreateRoutineViewModel: ObservableObject {
                 id: routineId ?? UUID().uuidString,
                 name: routineName.trimmingCharacters(in: .whitespacesAndNewlines),
                 userId: user.id,
-                exercises: selectedExercises.map { exercise in
-                    WorkoutExercise(exercise: exercise, sets: [])
+                exercises: selectedExercises.enumerated().map { index, exercise in
+                    WorkoutExercise(exercise: exercise, sets: [], order: index)
                 },
                 createdAt: Date(),
                 colorHex: finalColorHex

@@ -176,12 +176,14 @@ struct WorkoutScreen: View {
                     isLoading: viewModel.workoutState == .loading,
                     onConfirm: {
                         viewModel.finishWorkout(forceFinish: false) {
+                            print("✅ WorkoutScreen: finishWorkout success callback - closing dialog and calling onFinish")
                             showFinishDialog = false
                             onFinish()
                         }
                     },
                     onForceFinish: {
                         viewModel.finishWorkout(forceFinish: true) {
+                            print("✅ WorkoutScreen: finishWorkout(forceFinish) success callback - closing dialog and calling onFinish")
                             showFinishDialog = false
                             onFinish()
                         }
@@ -200,6 +202,7 @@ struct WorkoutScreen: View {
                     routineCount: viewModel.routineCount,
                     isPremium: viewModel.isPremium,
                     onJustFinish: {
+                        print("📝 WorkoutScreen: Quick workout onJustFinish - showing finish dialog")
                         showQuickWorkoutFinishDialog = false
                         showFinishDialog = true
                     },
@@ -207,6 +210,7 @@ struct WorkoutScreen: View {
                         viewModel.saveAsRoutine(
                             routineName: routineName,
                             onSuccess: {
+                                print("💾 WorkoutScreen: Save routine success - showing finish dialog")
                                 showQuickWorkoutFinishDialog = false
                                 showFinishDialog = true
                             },
@@ -502,19 +506,35 @@ struct WorkoutScreen: View {
         if !initialized {
             let sessionState = WorkoutSessionManager.shared.getWorkoutState()
             
+            print("🎯 WorkoutScreen initializeWorkout:")
+            print("   routineId: \(routineId ?? "nil")")
+            print("   routineName: \(routineName)")
+            print("   sessionState exists: \(sessionState != nil)")
+            if let sessionState = sessionState {
+                print("   sessionState routineId: \(sessionState.routineId ?? "nil")")
+            }
+            
             switch true {
             case sessionState != nil && routineId == nil:
+                print("📱 Taking path: initializeFromSession (no routineId)")
                 viewModel.initializeFromSession()
             case sessionState != nil && routineId != nil && sessionState?.routineId == routineId:
+                print("📱 Taking path: initializeFromSession (matching routineId)")
+                print("⚠️ WARNING: Using existing session data instead of fresh routine data")
                 viewModel.initializeFromSession()
             case routineId != nil:
+                print("📱 Taking path: initializeFromRoutine(\(routineId!))")
                 viewModel.initializeFromRoutine(routineId!)
             case sessionState != nil:
+                print("📱 Taking path: initializeFromSession (fallback)")
                 viewModel.initializeFromSession()
             default:
+                print("📱 Taking path: initializeQuickWorkout(\(routineName))")
                 viewModel.initializeQuickWorkout(routineName)
             }
             initialized = true
+        } else {
+            print("⚠️ WorkoutScreen initializeWorkout SKIPPED - already initialized")
         }
     }
     

@@ -39,6 +39,7 @@ class WorkoutViewModel: ObservableObject {
     @Published var restTimerRemaining: Int = 0
     @Published var restTimerTotal: Int = 0
     @Published var isRestTimerPaused: Bool = false
+    @Published var activeRestTimerExerciseId: String? = nil
     
     // Save as routine states
     @Published var showSaveAsRoutineDialog: Bool = false
@@ -161,6 +162,7 @@ class WorkoutViewModel: ObservableObject {
             .assign(to: \.isRestTimerPaused, on: self)
             .store(in: &cancellables)
         
+        
         // Observe user preferences
         userPreferences.$weightUnit
             .receive(on: DispatchQueue.main)
@@ -208,7 +210,10 @@ class WorkoutViewModel: ObservableObject {
     // MARK: - Initialization Methods
     
     func initializeFromRoutine(_ routineId: String) {
-        guard !isInitialized else { return }
+        guard !isInitialized else { 
+            print("❌ initializeFromRoutine SKIPPED - already initialized")
+            return 
+        }
         
         print("🚀 STARTING initializeFromRoutine with routineId: \(routineId)")
         isLoadingRoutine = true
@@ -216,32 +221,39 @@ class WorkoutViewModel: ObservableObject {
         Task {
             do {
                 // Load routine
+                print("🔍 Fetching routine from repository...")
                 guard let routine = try await workoutRepository.getWorkoutById(routineId) else {
+                    print("❌ Routine not found in repository")
                     workoutState = .error("Routine not found")
                     return
                 }
+                
+                print("✅ Loaded routine '\(routine.name)' with \(routine.exercises.count) exercises")
                 
                 currentRoutineId = routineId
                 originalRoutineName = routine.name
                 routineName = routine.name
                 
-                // Create basic workout exercises with DEFAULT values pre-populated (matching Android)
-                let basicWorkoutExercises = routine.exercises.map { workoutExercise in
-                    WorkoutExercise(
-                        exercise: workoutExercise.exercise,
-                        sets: (0..<workoutExercise.exercise.defaultSets).map { idx in
+                // Create workout exercises preserving routine-specific settings (notes, superset, dropset flags)
+                print("🔧 Processing \(routine.exercises.count) exercises from routine")
+                let basicWorkoutExercises = routine.exercises.enumerated().map { index, routineWorkoutExercise in
+                    print("🔧 Exercise \(index): \(routineWorkoutExercise.exercise.name) - notes: '\(routineWorkoutExercise.notes)' - superset: \(routineWorkoutExercise.isSuperset) - dropset: \(routineWorkoutExercise.isDropset)")
+                    return WorkoutExercise(
+                        exercise: routineWorkoutExercise.exercise,
+                        sets: (0..<routineWorkoutExercise.exercise.defaultSets).map { idx in
                             ExerciseSet(
                                 setNumber: idx + 1,
-                                weight: workoutExercise.exercise.usesWeight && !workoutExercise.exercise.isBodyweight ? 0.0 : 0.0,
-                                reps: workoutExercise.exercise.defaultReps,
-                                distance: workoutExercise.exercise.tracksDistance ? 0.0 : 0.0,
-                                time: workoutExercise.exercise.isTimeBased ? 0 : 0,
+                                weight: routineWorkoutExercise.exercise.usesWeight && !routineWorkoutExercise.exercise.isBodyweight ? 0.0 : 0.0,
+                                reps: routineWorkoutExercise.exercise.defaultReps,
+                                distance: routineWorkoutExercise.exercise.tracksDistance ? 0.0 : 0.0,
+                                time: routineWorkoutExercise.exercise.isTimeBased ? 0 : 0,
                                 isCompleted: false
                             )
                         },
-                        notes: "",
-                        isSuperset: workoutExercise.exercise.isSuperset,
-                        isDropset: workoutExercise.exercise.isDropset
+                        notes: routineWorkoutExercise.notes,
+                        isSuperset: routineWorkoutExercise.isSuperset,
+                        isDropset: routineWorkoutExercise.isDropset,
+                        order: routineWorkoutExercise.order
                     )
                 }
                 
@@ -264,7 +276,7 @@ class WorkoutViewModel: ObservableObject {
                 )
                 
                 // Load historical data in background
-                await loadHistoricalDataInBackground(routine.exercises.map { $0.exercise })
+                await loadHistoricalDataInBackground(basicWorkoutExercises)
                 
             } catch {
                 print("❌ Error initializing routine: \(error)")
@@ -320,7 +332,10 @@ class WorkoutViewModel: ObservableObject {
     }
     
     func initializeFromSession() {
-        guard !isInitialized else { return }
+        guard !isInitialized else { 
+            print("❌ initializeFromSession SKIPPED - already initialized")
+            return 
+        }
         
         guard let sessionState = workoutSessionManager.getWorkoutState() else {
             print("❌ No session state found for resume")
@@ -328,6 +343,10 @@ class WorkoutViewModel: ObservableObject {
         }
         
         print("🏋️ RESUMING FROM SESSION: \(sessionState.routineName)")
+        print("🏋️ Session has \(sessionState.exercises.count) exercises")
+        for (index, exercise) in sessionState.exercises.enumerated() {
+            print("🏋️ Session Exercise \(index): \(exercise.exercise.name) - notes: '\(exercise.notes)' - superset: \(exercise.isSuperset) - dropset: \(exercise.isDropset)")
+        }
         
         currentRoutineId = sessionState.routineId
         originalRoutineName = sessionState.routineName
@@ -349,47 +368,32 @@ class WorkoutViewModel: ObservableObject {
         }
     }
     
-    private func loadHistoricalDataInBackground(_ exercises: [Exercise]) async {
+    private func loadHistoricalDataInBackground(_ exercises: [WorkoutExercise]) async {
         print("🔄 PHASE 2: Loading historical data in background")
         
         let totalExercises = exercises.count
         var processedExercises = 0
         
-        // Capture current exercises before entering TaskGroup
-        let currentExercises = self.exercises
-        
-        let updatedExercises = await withTaskGroup(of: WorkoutExercise?.self, returning: [WorkoutExercise].self) { group in
-            for (index, exercise) in exercises.enumerated() {
+        let updatedExercises = await withTaskGroup(of: WorkoutExercise.self, returning: [WorkoutExercise].self) { group in
+            for workoutExercise in exercises {
                 group.addTask {
                     // Load historical data for this exercise
                     let historicalData = await self.findPreviousAndBestSets(
-                        exerciseId: exercise.id,
-                        isTimeBasedPure: exercise.isTimeBased && !exercise.usesWeight && !exercise.tracksDistance
+                        exerciseId: workoutExercise.exercise.id,
+                        isTimeBasedPure: workoutExercise.exercise.isTimeBased && !workoutExercise.exercise.usesWeight && !workoutExercise.exercise.tracksDistance
                     )
-                    let notes = await self.lastNotesFor(exerciseId: exercise.id) ?? ""
-                    
-                    // Find existing exercise in current list
-                    guard let existingExercise = currentExercises.first(where: { $0.exercise.id == exercise.id }) else {
-                        // Return a basic WorkoutExercise if not found
-                        return WorkoutExercise(
-                            exercise: exercise,
-                            sets: [],
-                            notes: "",
-                            isSuperset: false,
-                            isDropset: false
-                        )
-                    }
+                    let notes = await self.lastNotesFor(exerciseId: workoutExercise.exercise.id) ?? ""
                     
                     // Update with historical data and pre-populated values
-                    let updatedSets = existingExercise.sets.map { set in
+                    let updatedSets = workoutExercise.sets.map { set in
                         let (previousSet, bestSet) = historicalData[set.setNumber] ?? (nil, nil)
                         
                         // Pre-populate with actual values from previous workout
-                        let actualWeight = (exercise.usesWeight && previousSet?.weight ?? 0 > 0) ? (previousSet?.weight ?? set.weight) : set.weight
-                        let actualReps = (!exercise.isTimeBased && previousSet?.reps ?? 0 > 0) ? (previousSet?.reps ?? set.reps) : set.reps
-                        let actualDistance = (exercise.tracksDistance && previousSet?.distance ?? 0 > 0) ? (previousSet?.distance ?? set.distance) : set.distance
+                        let actualWeight = (workoutExercise.exercise.usesWeight && previousSet?.weight ?? 0 > 0) ? (previousSet?.weight ?? set.weight) : set.weight
+                        let actualReps = (!workoutExercise.exercise.isTimeBased && previousSet?.reps ?? 0 > 0) ? (previousSet?.reps ?? set.reps) : set.reps
+                        let actualDistance = (workoutExercise.exercise.tracksDistance && previousSet?.distance ?? 0 > 0) ? (previousSet?.distance ?? set.distance) : set.distance
                         let previousTime: Int = Int(previousSet?.time ?? 0)
-                        let actualTime: Int = (exercise.isTimeBased && previousTime > 0) ? previousTime : set.time
+                        let actualTime: Int = (workoutExercise.exercise.isTimeBased && previousTime > 0) ? previousTime : set.time
                         
                         return set.copy(
                             weight: actualWeight,
@@ -407,20 +411,13 @@ class WorkoutViewModel: ObservableObject {
                         )
                     }
                     
-                    return existingExercise.copy(sets: updatedSets,notes: notes )
-                }
-                
-                processedExercises += 1
-                await MainActor.run {
-                    exerciseLoadingProgress = Float(processedExercises) / Float(totalExercises)
+                    return workoutExercise.copy(sets: updatedSets,notes: notes )
                 }
             }
             
             var results: [WorkoutExercise] = []
             for await result in group {
-                if let exercise = result {
-                    results.append(exercise)
-                }
+                results.append(result)
             }
             return results
         }
@@ -483,8 +480,9 @@ class WorkoutViewModel: ObservableObject {
             exercise: exerciseWithId,
             sets: newSets,
             notes: "",
-            isSuperset: exerciseWithId.isSuperset,
-            isDropset: exerciseWithId.isDropset
+            isSuperset: false,
+            isDropset: false,
+            order: exercises.count
         )
         
         // Append & publish
@@ -661,21 +659,32 @@ class WorkoutViewModel: ObservableObject {
     
     func replaceExercise(_ workoutExercise: WorkoutExercise) {
         print("replaceExercise called for \(workoutExercise.exercise.name)")
-        
-        guard let currentExercise = exercises.first(where: { $0.exercise.id == workoutExercise.exercise.id }) else { return }
-        
+
+        guard let currentExercise = exercises.first(where: { 
+            $0.exercise.id == workoutExercise.exercise.id || ($0.exercise.name == workoutExercise.exercise.name && $0.exercise.id.isEmpty)
+        }) else { 
+            print("Could not find exercise to replace: \(workoutExercise.exercise.name)")
+            return
+        }
+
         exerciseToReplace = currentExercise
         isReplacingExercise = true
         print("Exercise replacement mode activated for: \(currentExercise.exercise.name)")
     }
     
     func confirmReplaceExercise(_ newExercise: Exercise) {
-        guard let exerciseToReplace = exerciseToReplace,
-              let index = exercises.firstIndex(where: { $0.exercise.id == exerciseToReplace.exercise.id }) else { return }
-        
-        // Reset replacement state
+        guard let exerciseToReplace = exerciseToReplace else { return }
+
+        // Immediately reset replacement state to prevent double-triggering
         self.exerciseToReplace = nil
         isReplacingExercise = false
+
+        guard let index = exercises.firstIndex(where: { 
+            $0.exercise.id == exerciseToReplace.exercise.id || ($0.exercise.name == exerciseToReplace.exercise.name && $0.exercise.id.isEmpty)
+        }) else { 
+            print("Could not find exercise index for replacement")
+            return
+        }
         
         // Create new WorkoutExercise with the new exercise but keep existing sets structure
         let newWorkoutExercise = WorkoutExercise(
@@ -693,7 +702,8 @@ class WorkoutViewModel: ObservableObject {
             },
             notes: exerciseToReplace.notes,
             isSuperset: exerciseToReplace.isSuperset,
-            isDropset: exerciseToReplace.isDropset
+            isDropset: exerciseToReplace.isDropset,
+            order: exerciseToReplace.order
         )
         
         exercises[index] = newWorkoutExercise
@@ -706,12 +716,14 @@ class WorkoutViewModel: ObservableObject {
     
     // MARK: - Rest Timer
     
-    func startRestTimer(_ duration: Int) {
+    func startRestTimer(_ duration: Int, exerciseId: String? = nil) {
         restTimerManager.startTimer(duration: TimeInterval(duration))
+        activeRestTimerExerciseId = exerciseId
     }
     
     func stopRestTimer() {
         restTimerManager.stopTimer()
+        activeRestTimerExerciseId = nil
     }
     
     func pauseResumeRestTimer() {
@@ -775,7 +787,9 @@ class WorkoutViewModel: ObservableObject {
                                 distance: set.distance,
                                 time: Double(set.time)
                             )
-                        }
+                        },
+                        isSuperset: wEx.isSuperset,
+                        isDropset: wEx.isDropset
                     )
                 }
                 
@@ -827,9 +841,20 @@ class WorkoutViewModel: ObservableObject {
                 if let routineId = currentRoutineId {
                     try await workoutRepository.updateWorkoutLastPerformed(routineId: routineId, lastPerformed: history.endTime)
                     if isRoutineModified {
+                        // Create a new Workout object with the updated exercises
+                        if let originalWorkout = try await workoutRepository.getWorkoutById(routineId) {
+                            let updatedWorkout = Workout(
+                                id: originalWorkout.id,
+                                name: originalWorkout.name,
+                                userId: originalWorkout.userId,
+                                exercises: exercises, // The exercises from the view model
+                                createdAt: originalWorkout.createdAt,
+                                colorHex: originalWorkout.colorHex,
+                                lastPerformed: history.endTime
+                            )
+                            try await workoutRepository.updateWorkout(updatedWorkout)
+                        }
                         showUpdateRoutineDialog = true
-                        workoutState = .success
-                        return
                     }
                 }
                 
@@ -1324,14 +1349,16 @@ extension WorkoutExercise {
         sets: [ExerciseSet]? = nil,
         notes: String? = nil,
         isSuperset: Bool? = nil,
-        isDropset: Bool? = nil
+        isDropset: Bool? = nil,
+        order: Int? = nil
     ) -> WorkoutExercise {
         return WorkoutExercise(
             exercise: exercise ?? self.exercise,
             sets: sets ?? self.sets,
             notes: notes ?? self.notes,
             isSuperset: isSuperset ?? self.isSuperset,
-            isDropset: isDropset ?? self.isDropset
+            isDropset: isDropset ?? self.isDropset,
+            order: order ?? self.order
         )
     }
 }

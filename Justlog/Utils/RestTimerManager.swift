@@ -8,6 +8,7 @@
 import Foundation
 import Combine
 import SwiftUI
+import UIKit
 
 @MainActor
 class RestTimerManager: ObservableObject {
@@ -102,6 +103,13 @@ class RestTimerManager: ObservableObject {
             stopTimer()
             timerState = .completed
         } else {
+            // Add haptic feedback for the last 3 seconds
+            if remainingTime <= 3 && remainingTime > 0 {
+                let hapticFeedback = UIImpactFeedbackGenerator(style: .light)
+                hapticFeedback.impactOccurred()
+                print("🔸 Rest timer haptic feedback: \(Int(remainingTime)) seconds remaining")
+            }
+            
             timerState = .active(remaining: remainingTime, total: totalDuration)
         }
     }

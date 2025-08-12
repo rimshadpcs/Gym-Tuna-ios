@@ -332,6 +332,10 @@ class WorkoutRepositoryImpl: WorkoutRepository {
         }
         
         logger.info("📱 Creating workout: \(workout.name)")
+        print("💾 Saving \(workout.exercises.count) exercises to Firestore")
+        for (index, workoutExercise) in workout.exercises.enumerated() {
+            print("💾 Exercise \(index): \(workoutExercise.exercise.name) - notes: '\(workoutExercise.notes)' - superset: \(workoutExercise.isSuperset) - dropset: \(workoutExercise.isDropset)")
+        }
         
         // Auto-assign color if not provided, similar to Android implementation
         let finalColorHex: String
@@ -358,7 +362,12 @@ class WorkoutRepositoryImpl: WorkoutRepository {
                     "usesWeight": workoutExercise.exercise.usesWeight,
                     "tracksDistance": workoutExercise.exercise.tracksDistance,
                     "isTimeBased": workoutExercise.exercise.isTimeBased,
-                    "description": workoutExercise.exercise.description
+                    "description": workoutExercise.exercise.description,
+                    // WorkoutExercise-specific properties
+                    "notes": workoutExercise.notes,
+                    "isSuperset": workoutExercise.isSuperset,
+                    "isDropset": workoutExercise.isDropset,
+                    "order": workoutExercise.order
                 ]
             },
             "colorHex": finalColorHex,
@@ -399,7 +408,12 @@ class WorkoutRepositoryImpl: WorkoutRepository {
                     "usesWeight": workoutExercise.exercise.usesWeight,
                     "tracksDistance": workoutExercise.exercise.tracksDistance,
                     "isTimeBased": workoutExercise.exercise.isTimeBased,
-                    "description": workoutExercise.exercise.description
+                    "description": workoutExercise.exercise.description,
+                    // WorkoutExercise-specific properties
+                    "notes": workoutExercise.notes,
+                    "isSuperset": workoutExercise.isSuperset,
+                    "isDropset": workoutExercise.isDropset,
+                    "order": workoutExercise.order
                 ]
             },
             "colorHex": workout.colorHex ?? "#007AFF",
@@ -572,7 +586,7 @@ class WorkoutRepositoryImpl: WorkoutRepository {
         guard let data = document.data() else { return nil }
         
         
-        let exercises = (data["exercises"] as? [[String: Any]] ?? []).compactMap { exerciseMap -> WorkoutExercise? in
+        var exercises = (data["exercises"] as? [[String: Any]] ?? []).compactMap { exerciseMap -> WorkoutExercise? in
             guard let name = exerciseMap["name"] as? String else { return nil }
             
             let exercise = Exercise(
@@ -589,9 +603,25 @@ class WorkoutRepositoryImpl: WorkoutRepository {
                 description: exerciseMap["description"] as? String ?? ""
             )
             
-            // Create WorkoutExercise with empty sets (will be populated during workout)
-            return WorkoutExercise(exercise: exercise, sets: [])
+            // Create WorkoutExercise with empty sets (will be populated during workout) and preserve routine-specific properties
+            let notes = exerciseMap["notes"] as? String ?? ""
+            let isSuperset = exerciseMap["isSuperset"] as? Bool ?? false
+            let isDropset = exerciseMap["isDropset"] as? Bool ?? false
+            let order = exerciseMap["order"] as? Int ?? 0
+            
+            print("🔄 Loading exercise \(name) - notes: '\(notes)' - superset: \(isSuperset) - dropset: \(isDropset)")
+            
+            return WorkoutExercise(
+                exercise: exercise, 
+                sets: [],
+                notes: notes,
+                isSuperset: isSuperset,
+                isDropset: isDropset,
+                order: order
+            )
         }
+        
+        exercises.sort { $0.order < $1.order }
         
         // Convert createdAt timestamp if available
         let createdAt: Date

@@ -40,6 +40,8 @@ struct CompletedExercise: Identifiable, Codable, Equatable {
     let muscleGroup: String
     let equipment: String
     let sets: [CompletedSet]
+    let isSuperset: Bool
+    let isDropset: Bool
     
     init(
         id: String = UUID().uuidString,
@@ -48,7 +50,9 @@ struct CompletedExercise: Identifiable, Codable, Equatable {
         notes: String = "",
         muscleGroup: String = "",
         equipment: String = "",
-        sets: [CompletedSet] = []
+        sets: [CompletedSet] = [],
+        isSuperset: Bool = false,
+        isDropset: Bool = false
     ) {
         self.id = id
         self.exerciseId = exerciseId
@@ -57,5 +61,7 @@ struct CompletedExercise: Identifiable, Codable, Equatable {
         self.muscleGroup = muscleGroup
         self.equipment = equipment
         self.sets = sets
+        self.isSuperset = isSuperset
+        self.isDropset = isDropset
     }
 }

@@ -196,10 +196,6 @@ struct ExerciseSearchView: View {
                                     exercise: exercise,
                                     onTap: { 
                                         print("🎯 ExerciseSearchView: Exercise tapped: \(exercise.name)")
-                                        
-                                        // Send exercise through channel (similar to Kotlin ExerciseChannel.sendExercise)
-                                        ExerciseChannel.shared.sendExercise(exercise)
-                                        
                                         onExerciseSelected(exercise)
                                     }
                                 )

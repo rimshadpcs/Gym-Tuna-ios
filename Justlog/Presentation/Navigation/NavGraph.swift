@@ -326,6 +326,7 @@ struct NavGraph: View {
                     coordinator.pop()
                 },
                 onFinish: {
+                    print("🏠 NavGraph: onFinish called - navigating to home")
                     coordinator.navigate(to: .home)
                 },
                 onAddExercise: {
@@ -348,6 +349,7 @@ struct NavGraph: View {
                     coordinator.pop()
                 },
                 onFinish: {
+                    print("🏠 NavGraph: onFinish called - navigating to home")
                     coordinator.navigate(to: .home)
                 },
                 onAddExercise: {
