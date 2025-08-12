@@ -47,6 +47,9 @@ class WorkoutViewModel: ObservableObject {
     @Published var routineCount: Int = 0
     @Published var isPremium: Bool = false
     
+    // Exercise operation feedback
+    @Published var lastExerciseOperation: ExerciseOperation?
+    
     // MARK: - Private Properties
     private let workoutSessionManager: WorkoutSessionManager
     private let workoutHistoryRepository: WorkoutHistoryRepository
@@ -456,24 +459,8 @@ class WorkoutViewModel: ObservableObject {
         print("🔍 Current exercises count before adding: \(exercises.count)")
         print("🔍 Current exercises: \(exercises.map { $0.exercise.name })")
         
-        // Check for pending exercises from ExerciseChannel (similar to CreateRoutineViewModel)
-        if ExerciseChannel.shared.hasPendingExercise() {
-            let result = ExerciseChannel.shared.consumeExercise()
-            if let pendingExercise = result.exercise {
-                print("🎁 WorkoutViewModel: Found pending exercise from ExerciseChannel: \(pendingExercise.name) - isReplacement: \(result.isReplacement)")
-                
-                if result.isReplacement {
-                    // This is a replacement operation
-                    print("🔄 WorkoutViewModel: Processing as replacement")
-                    confirmReplaceExercise(pendingExercise)
-                    return
-                } else {
-                    // This is a regular add operation
-                    print("➕ WorkoutViewModel: Processing as regular add")
-                    return addExercise(pendingExercise)
-                }
-            }
-        }
+        // Note: ExerciseChannel consumption is now handled by checkForPendingExercises()
+        // This method should only be called directly with a specific exercise
         
         // Simple duplicate guard
         if exercises.contains(where: { $0.exercise.id == exerciseWithId.id }) {
@@ -518,6 +505,9 @@ class WorkoutViewModel: ObservableObject {
         workoutSessionManager.updateCurrentExercise(exerciseWithId.name)
         updateSessionExercises()
         calculateStats()
+        
+        // Trigger feedback
+        lastExerciseOperation = .added(exerciseWithId.name)
         
         print("🔄 Session updated and stats calculated")
         print("📊 Total volume: \(totalVolume), Total sets: \(totalSets)")
@@ -740,6 +730,9 @@ class WorkoutViewModel: ObservableObject {
         calculateStats()
         updateSessionExercises()
         isRoutineModified = currentRoutineId != nil
+        
+        // Trigger feedback
+        lastExerciseOperation = .replaced(exerciseToReplace.exercise.name, newExercise.name)
         
         print("Successfully replaced \(exerciseToReplace.exercise.name) with \(newExercise.name)")
     }
@@ -1318,6 +1311,22 @@ enum ActiveWorkoutState: Equatable {
     case loading
     case success
     case error(String)
+}
+
+// MARK: - Exercise Operations
+
+enum ExerciseOperation {
+    case added(String)    // Exercise name
+    case replaced(String, String)  // Old name, new name
+    
+    var message: String {
+        switch self {
+        case .added(let name):
+            return "\(name) added"
+        case .replaced(let oldName, let newName):
+            return "\(oldName) replaced with \(newName)"
+        }
+    }
 }
 
 // MARK: - Extensions

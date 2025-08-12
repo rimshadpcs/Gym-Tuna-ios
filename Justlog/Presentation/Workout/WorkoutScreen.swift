@@ -29,8 +29,8 @@ struct WorkoutScreen: View {
     @State private var workoutCompletionStatus: WorkoutCompletionStatus? = nil
     @State private var showErrorDialog: String? = nil
     @State private var exerciseExpandStates: [String: Bool] = [:]
-    @State private var showExerciseAddedFeedback = false
-    @State private var addedExerciseName = ""
+    @State private var showExerciseFeedback = false
+    @State private var exerciseFeedbackMessage = ""
     
     init(
         routineId: String? = nil,
@@ -106,8 +106,8 @@ struct WorkoutScreen: View {
             }
             }
             
-            // Exercise Added Feedback Overlay
-            if showExerciseAddedFeedback {
+            // Exercise Operation Feedback Overlay
+            if showExerciseFeedback {
                 VStack {
                     Spacer()
                     
@@ -116,7 +116,7 @@ struct WorkoutScreen: View {
                             .font(.system(size: 20))
                             .foregroundColor(.green)
                         
-                        Text("Added \(addedExerciseName)")
+                        Text(exerciseFeedbackMessage)
                             .font(.system(size: 16, weight: .medium))
                             .foregroundColor(.white)
                     }
@@ -144,33 +144,23 @@ struct WorkoutScreen: View {
             // THEN check for pending exercises from ExerciseChannel (similar to Kotlin LaunchedEffect)
             // Use async dispatch to ensure initialization completes first
             DispatchQueue.main.async {
-                if ExerciseChannel.shared.hasPendingExercise() {
-                    let result = ExerciseChannel.shared.consumeExercise()
-                    if let exercise = result.exercise {
-                        print("🏋️ WorkoutScreen: Processing exercise from ExerciseChannel: \(exercise.name) - isReplacement: \(result.isReplacement)")
-                        print("🏋️ WorkoutScreen: Current exercises count before: \(viewModel.exercises.count)")
-                        
-                        if result.isReplacement {
-                            viewModel.confirmReplaceExercise(exercise)
-                        } else {
-                            viewModel.addExercise(exercise)
-                        }
-                        
-                        print("🏋️ WorkoutScreen: Exercises count after: \(viewModel.exercises.count)")
-                        
-                        // Show feedback
-                        addedExerciseName = exercise.name
-                        withAnimation {
-                            showExerciseAddedFeedback = true
-                        }
-                        
-                        // Hide feedback after 2 seconds
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                            withAnimation {
-                                showExerciseAddedFeedback = false
-                            }
-                        }
-                    }
+                // Let the ViewModel handle ExerciseChannel consumption - it has the proper logic
+                // for distinguishing between add and replace operations
+                viewModel.checkForPendingExercises()
+            }
+        }
+        .onReceive(viewModel.$lastExerciseOperation) { operation in
+            guard let operation = operation else { return }
+            
+            exerciseFeedbackMessage = operation.message
+            withAnimation {
+                showExerciseFeedback = true
+            }
+            
+            // Hide feedback after 2 seconds
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                withAnimation {
+                    showExerciseFeedback = false
                 }
             }
         }
