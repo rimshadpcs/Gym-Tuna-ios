@@ -117,8 +117,10 @@ struct ProfileView: View {
                     y: 2
                 )
             
-            Image(systemName: "person.fill")
-                .font(.system(size: 50, weight: .regular))
+            Image(isDarkTheme ? "profile" : "profile_dark")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 50, height: 50)
                 .foregroundColor(.white)
         }
     }

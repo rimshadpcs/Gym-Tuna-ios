@@ -60,23 +60,27 @@ struct BottomWorkoutBanner: View {
                 // Red X button for discard
                 Button(action: { showDiscardConfirmation = true }) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.system(size: 18, weight: .semibold))
                         .foregroundColor(.red)
+                        .frame(width: 32, height: 32)
+                        .background(Color.clear)
                 }
                 .buttonStyle(.plain)
                 
                 // Resume button with play icon
                 Button(action: onResumeClick) {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 4) {
                         Image(isDarkTheme ? "play_dark" : "play")
                             .resizable()
                             .aspectRatio(contentMode: .fit)
-                            .frame(width: 10, height: 10)
+                            .frame(width: 8, height: 8)
                         Text("Resume")
-                            .vagFont(size: 13, weight: .medium)
+                            .vagFont(size: 12, weight: .medium)
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
                     }
                     .foregroundColor(isDarkTheme ? .white : (themeManager?.colors.onSurface ?? LightThemeColors.onSurface))
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(
                         RoundedRectangle(cornerRadius: 6)

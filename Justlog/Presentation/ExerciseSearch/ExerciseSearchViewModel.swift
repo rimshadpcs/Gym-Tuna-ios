@@ -81,6 +81,37 @@ class ExerciseSearchViewModel: ObservableObject {
         applyFilters()
     }
     
+    private func fuzzyMatch(text: String, query: String) -> Bool {
+        // First try exact match (case insensitive)
+        if text.localizedCaseInsensitiveContains(query) {
+            return true
+        }
+        
+        // Normalize both strings by removing spaces, hyphens, underscores and other separators
+        let normalizedText = normalizeString(text)
+        let normalizedQuery = normalizeString(query)
+        
+        let matches = normalizedText.localizedCaseInsensitiveContains(normalizedQuery)
+        
+        // Debug logging to show fuzzy matching in action
+        if matches && normalizedText != text.lowercased() {
+            print("🔍 Fuzzy match found: '\(text)' matches query '\(query)' (normalized: '\(normalizedText)' contains '\(normalizedQuery)')")
+        }
+        
+        return matches
+    }
+    
+    private func normalizeString(_ string: String) -> String {
+        return string
+            .lowercased()
+            .replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: "-", with: "")
+            .replacingOccurrences(of: "_", with: "")
+            .replacingOccurrences(of: ".", with: "")
+            .replacingOccurrences(of: "'", with: "")
+            .replacingOccurrences(of: "\"", with: "")
+    }
+    
     
     private func applyFilters() {
         print("🔧 ExerciseSearchViewModel: Applying filters to \(allExercises.count) exercises")
@@ -89,10 +120,10 @@ class ExerciseSearchViewModel: ObservableObject {
         // Apply search filter
         if !searchQuery.isEmpty {
             filtered = filtered.filter { exercise in
-                exercise.name.localizedCaseInsensitiveContains(searchQuery) ||
-                exercise.muscleGroup.localizedCaseInsensitiveContains(searchQuery) ||
-                exercise.equipment.localizedCaseInsensitiveContains(searchQuery) ||
-                exercise.description.localizedCaseInsensitiveContains(searchQuery)
+                fuzzyMatch(text: exercise.name, query: searchQuery) ||
+                fuzzyMatch(text: exercise.muscleGroup, query: searchQuery) ||
+                fuzzyMatch(text: exercise.equipment, query: searchQuery) ||
+                fuzzyMatch(text: exercise.description, query: searchQuery)
             }
             print("🔍 ExerciseSearchViewModel: After search filter: \(filtered.count) exercises")
         }
