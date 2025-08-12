@@ -145,11 +145,16 @@ struct WorkoutScreen: View {
             // Use async dispatch to ensure initialization completes first
             DispatchQueue.main.async {
                 if ExerciseChannel.shared.hasPendingExercise() {
-                    if let exercise = ExerciseChannel.shared.consumeExercise() {
-                        print("🏋️ WorkoutScreen: Adding exercise from ExerciseChannel: \(exercise.name)")
+                    let result = ExerciseChannel.shared.consumeExercise()
+                    if let exercise = result.exercise {
+                        print("🏋️ WorkoutScreen: Processing exercise from ExerciseChannel: \(exercise.name) - isReplacement: \(result.isReplacement)")
                         print("🏋️ WorkoutScreen: Current exercises count before: \(viewModel.exercises.count)")
                         
-                        viewModel.addExercise(exercise)
+                        if result.isReplacement {
+                            viewModel.confirmReplaceExercise(exercise)
+                        } else {
+                            viewModel.addExercise(exercise)
+                        }
                         
                         print("🏋️ WorkoutScreen: Exercises count after: \(viewModel.exercises.count)")
                         

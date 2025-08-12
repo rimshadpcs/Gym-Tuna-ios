@@ -298,10 +298,11 @@ class WorkoutViewModel: ObservableObject {
         
         // Check for pending exercises from ExerciseChannel on quick workout start
         if ExerciseChannel.shared.hasPendingExercise() {
-            if let pendingExercise = ExerciseChannel.shared.consumeExercise() {
-                print("🎁 Quick workout: Adding pending exercise from channel: \(pendingExercise.name)")
-                // Don't call addExercise directly here as it would update session before initialization
-                // Instead, we'll check for it after initialization
+            let result = ExerciseChannel.shared.consumeExercise()
+            if let pendingExercise = result.exercise {
+                print("🎁 Quick workout: Found pending exercise from channel: \(pendingExercise.name) - isReplacement: \(result.isReplacement)")
+                // Put it back for processing after initialization
+                ExerciseChannel.shared.sendExercise(pendingExercise, isReplacement: result.isReplacement)
             }
         }
         
@@ -324,9 +325,19 @@ class WorkoutViewModel: ObservableObject {
     
     func checkForPendingExercises() {
         if ExerciseChannel.shared.hasPendingExercise() {
-            if let pendingExercise = ExerciseChannel.shared.consumeExercise() {
-                print("🎁 WorkoutViewModel: Processing pending exercise after initialization: \(pendingExercise.name)")
-                addExercise(pendingExercise)
+            let result = ExerciseChannel.shared.consumeExercise()
+            if let pendingExercise = result.exercise {
+                print("🎁 WorkoutViewModel: Processing pending exercise after initialization: \(pendingExercise.name) - isReplacement: \(result.isReplacement)")
+                
+                if result.isReplacement {
+                    // This is a replacement operation
+                    print("🔄 WorkoutViewModel: Processing as replacement after initialization")
+                    confirmReplaceExercise(pendingExercise)
+                } else {
+                    // This is a regular add operation
+                    print("➕ WorkoutViewModel: Processing as regular add after initialization")
+                    addExercise(pendingExercise)
+                }
             }
         }
     }
@@ -447,10 +458,20 @@ class WorkoutViewModel: ObservableObject {
         
         // Check for pending exercises from ExerciseChannel (similar to CreateRoutineViewModel)
         if ExerciseChannel.shared.hasPendingExercise() {
-            if let pendingExercise = ExerciseChannel.shared.consumeExercise() {
-                print("🎁 WorkoutViewModel: Found pending exercise from ExerciseChannel: \(pendingExercise.name)")
-                // Use the pending exercise instead of the parameter
-                return addExercise(pendingExercise)
+            let result = ExerciseChannel.shared.consumeExercise()
+            if let pendingExercise = result.exercise {
+                print("🎁 WorkoutViewModel: Found pending exercise from ExerciseChannel: \(pendingExercise.name) - isReplacement: \(result.isReplacement)")
+                
+                if result.isReplacement {
+                    // This is a replacement operation
+                    print("🔄 WorkoutViewModel: Processing as replacement")
+                    confirmReplaceExercise(pendingExercise)
+                    return
+                } else {
+                    // This is a regular add operation
+                    print("➕ WorkoutViewModel: Processing as regular add")
+                    return addExercise(pendingExercise)
+                }
             }
         }
         
@@ -670,6 +691,15 @@ class WorkoutViewModel: ObservableObject {
         exerciseToReplace = currentExercise
         isReplacingExercise = true
         print("Exercise replacement mode activated for: \(currentExercise.exercise.name)")
+        
+        // Clear any pending exercises from channel to ensure clean state
+        ExerciseChannel.shared.clearPendingExercise()
+    }
+    
+    func cancelReplaceExercise() {
+        exerciseToReplace = nil
+        isReplacingExercise = false
+        print("Exercise replacement cancelled")
     }
     
     func confirmReplaceExercise(_ newExercise: Exercise) {

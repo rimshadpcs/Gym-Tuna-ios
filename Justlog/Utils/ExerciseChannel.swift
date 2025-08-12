@@ -13,22 +13,26 @@ class ExerciseChannel {
     static let shared = ExerciseChannel()
     
     private var pendingExercise: Exercise?
+    private var isReplacementMode: Bool = false
     
     private init() {}
     
-    func sendExercise(_ exercise: Exercise) {
-        print("📤 ExerciseChannel: Sending exercise: \(exercise.name) (ID: '\(exercise.id)')")
+    func sendExercise(_ exercise: Exercise, isReplacement: Bool = false) {
+        print("📤 ExerciseChannel: Sending exercise: \(exercise.name) (ID: '\(exercise.id)') - Replacement: \(isReplacement)")
         print("📤 Previous pending exercise: \(pendingExercise?.name ?? "nil")")
         pendingExercise = exercise
+        isReplacementMode = isReplacement
         print("📤 Exercise sent successfully")
     }
     
-    func consumeExercise() -> Exercise? {
+    func consumeExercise() -> (exercise: Exercise?, isReplacement: Bool) {
         let exercise = pendingExercise
-        print("📥 ExerciseChannel: Consuming exercise: \(exercise?.name ?? "nil") (ID: '\(exercise?.id ?? "nil")')")
+        let isReplacement = isReplacementMode
+        print("📥 ExerciseChannel: Consuming exercise: \(exercise?.name ?? "nil") (ID: '\(exercise?.id ?? "nil")') - Replacement: \(isReplacement)")
         pendingExercise = nil
+        isReplacementMode = false
         print("📥 Exercise consumed, channel cleared")
-        return exercise
+        return (exercise, isReplacement)
     }
     
     func hasPendingExercise() -> Bool {
@@ -43,5 +47,10 @@ class ExerciseChannel {
     func clearPendingExercise() {
         print("🧹 ExerciseChannel: Clearing pending exercise")
         pendingExercise = nil
+        isReplacementMode = false
+    }
+    
+    func isInReplacementMode() -> Bool {
+        return isReplacementMode
     }
 }

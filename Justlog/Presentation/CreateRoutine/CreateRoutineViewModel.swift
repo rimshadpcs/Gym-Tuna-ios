@@ -258,12 +258,19 @@ class CreateRoutineViewModel: ObservableObject {
         print("🔍 Has pending exercise: \(hasPending)")
         
         if hasPending {
-            if let exercise = ExerciseChannel.shared.consumeExercise() {
-                print("📥 CreateRoutineViewModel: Processing pending exercise from channel: \(exercise.name)")
+            let result = ExerciseChannel.shared.consumeExercise()
+            if let exercise = result.exercise {
+                print("📥 CreateRoutineViewModel: Processing pending exercise from channel: \(exercise.name) - isReplacement: \(result.isReplacement)")
                 print("📥 Exercise ID: '\(exercise.id)'")
                 print("📥 Before adding - current exercises count: \(selectedExercises.count)")
-                addExercise(exercise)
-                print("📥 After adding - current exercises count: \(selectedExercises.count)")
+                
+                // Note: CreateRoutineViewModel doesn't handle replacements, only additions
+                if !result.isReplacement {
+                    addExercise(exercise)
+                    print("📥 After adding - current exercises count: \(selectedExercises.count)")
+                } else {
+                    print("⚠️ CreateRoutineViewModel: Ignoring replacement request (not supported in routine creation)")
+                }
             } else {
                 print("⚠️ hasPendingExercise was true but consumeExercise returned nil")
             }

@@ -217,9 +217,12 @@ struct NavGraph: View {
             onExerciseSelected: { exercise in
                 print("🚀 NavGraph: Exercise selected: \(exercise.name) from source: \(fromSource ?? "routine")")
                 
-                // The exercise has already been sent through ExerciseChannel in ExerciseSearchView
-                // Just navigate back - the channel will handle the exercise delivery
-                print("🔙 NavGraph: Navigating back (exercise sent via ExerciseChannel)")
+                // Check if we're in replacement mode based on the source
+                let isReplacement = fromSource == "workout_replace"
+                
+                // Send exercise through ExerciseChannel with replacement flag
+                ExerciseChannel.shared.sendExercise(exercise, isReplacement: isReplacement)
+                print("🔙 NavGraph: Navigating back (exercise sent via ExerciseChannel, replacement: \(isReplacement))")
                 coordinator.pop()
             },
             onCreateExercise: {

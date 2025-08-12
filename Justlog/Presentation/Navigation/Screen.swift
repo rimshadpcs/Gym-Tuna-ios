@@ -28,7 +28,7 @@ enum Screen: String, CaseIterable {
     
     func withReplacement() -> String {
         guard self == .exerciseSearch else { return route }
-        return "\(route)?replacement=true"
+        return "\(route)?from=workout_replace"
     }
     
     func withSourceAndReplacement(_ source: String) -> String {
