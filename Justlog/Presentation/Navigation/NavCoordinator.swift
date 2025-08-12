@@ -62,7 +62,18 @@ class NavCoordinator: ObservableObject {
     func pop() {
         print("\(logger): Popping back")
         guard !navigationStack.isEmpty else { return }
-        currentScreen = navigationStack.removeLast()
+        let previousScreen = navigationStack.removeLast()
+        
+        // Preserve the route when popping back to workout screen to maintain ViewModel state
+        if previousScreen == .activeWorkout || previousScreen == .workout {
+            print("\(logger): Preserving route when returning to workout screen")
+            // Don't change currentRoute - keep the existing route with parameters
+        } else {
+            // For other screens, clear the route parameters
+            currentRoute = previousScreen.route
+        }
+        
+        currentScreen = previousScreen
     }
     
     func present(_ screen: Screen) {

@@ -21,6 +21,7 @@ struct NavGraph: View {
     @State private var currentRoutineId: String? = nil
     @State private var isInCreateRoutineFlow: Bool = false
     @State private var routinePreviewId: String? = nil
+    
 
     init(authViewModel: AuthViewModel, authRepository: AuthRepository, workoutRepository: WorkoutRepository, exerciseRepository: ExerciseRepository, workoutHistoryRepository: WorkoutHistoryRepository, counterRepository: CounterRepository, subscriptionRepository: SubscriptionRepository, userPreferences: UserPreferences) {
         self.authRepository = authRepository
@@ -357,7 +358,7 @@ struct NavGraph: View {
             print("⚠️ NavGraph: Creating Quick Workout (missing params)")
             return AnyView(WorkoutScreen(
                 routineId: nil,
-                routineName: "Quick Workout",
+                routineName: routineName ?? "Quick Workout",
                 onBack: {
                     coordinator.pop()
                 },
@@ -445,6 +446,7 @@ struct NavGraph: View {
         }
     }
 }
+
 
 
 // MARK: - CreateRoutineView Container

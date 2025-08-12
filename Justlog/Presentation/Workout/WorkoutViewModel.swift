@@ -411,8 +411,8 @@ class WorkoutViewModel: ObservableObject {
         let totalExercises = exercises.count
         var processedExercises = 0
         
-        let updatedExercises = await withTaskGroup(of: WorkoutExercise.self, returning: [WorkoutExercise].self) { group in
-            for workoutExercise in exercises {
+        let updatedExercises = await withTaskGroup(of: (Int, WorkoutExercise).self, returning: [WorkoutExercise].self) { group in
+            for (index, workoutExercise) in exercises.enumerated() {
                 group.addTask {
                     // Load historical data for this exercise
                     let historicalData = await self.findPreviousAndBestSets(
@@ -448,15 +448,19 @@ class WorkoutViewModel: ObservableObject {
                         )
                     }
                     
-                    return workoutExercise.copy(sets: updatedSets,notes: notes )
+                    let updatedExercise = workoutExercise.copy(sets: updatedSets, notes: notes)
+                    return (index, updatedExercise)
                 }
             }
             
-            var results: [WorkoutExercise] = []
+            // Collect results and preserve original order
+            var results: [(Int, WorkoutExercise)] = []
             for await result in group {
                 results.append(result)
             }
-            return results
+            
+            // Sort by original index to maintain order, then extract just the exercises
+            return results.sorted { $0.0 < $1.0 }.map { $0.1 }
         }
         
         // Update exercises with historical data
@@ -704,11 +708,15 @@ class WorkoutViewModel: ObservableObject {
             return
         }
 
+        // Use both local state and singleton manager for redundancy
         exerciseToReplace = currentExercise
         isReplacingExercise = true
+        ExerciseReplacementManager.shared.startReplacement(for: currentExercise)
+        
         print("✅ Exercise replacement mode activated for: \(currentExercise.exercise.name)")
         print("✅ exerciseToReplace set to: \(exerciseToReplace?.exercise.name ?? "nil")")
         print("✅ isReplacingExercise set to: \(isReplacingExercise)")
+        print("✅ ExerciseReplacementManager also set")
         
         // Clear any pending exercises from channel to ensure clean state
         ExerciseChannel.shared.clearPendingExercise()
@@ -728,8 +736,16 @@ class WorkoutViewModel: ObservableObject {
         print("🔄 exerciseToReplace: \(exerciseToReplace?.exercise.name ?? "nil")")
         print("🔄 Current exercises before replacement: \(exercises.map { $0.exercise.name })")
         
-        guard let exerciseToReplace = exerciseToReplace else { 
-            print("❌ exerciseToReplace is nil - cannot proceed with replacement")
+        // Try to get exercise from local state, if nil try singleton manager
+        var targetExercise = exerciseToReplace
+        if targetExercise == nil {
+            print("⚠️ Local exerciseToReplace is nil, checking ExerciseReplacementManager...")
+            targetExercise = ExerciseReplacementManager.shared.completeReplacement()
+            print("⚠️ ExerciseReplacementManager returned: \(targetExercise?.exercise.name ?? "nil")")
+        }
+        
+        guard let exerciseToReplace = targetExercise else { 
+            print("❌ exerciseToReplace is nil in both local and manager - cannot proceed with replacement")
             return 
         }
 
@@ -738,7 +754,8 @@ class WorkoutViewModel: ObservableObject {
         // Immediately reset replacement state to prevent double-triggering
         self.exerciseToReplace = nil
         isReplacingExercise = false
-        print("🔄 Reset replacement state")
+        ExerciseReplacementManager.shared.cancelReplacement()
+        print("🔄 Reset replacement state in both local and manager")
 
         guard let index = exercises.firstIndex(where: { 
             $0.exercise.id == exerciseToReplace.exercise.id || ($0.exercise.name == exerciseToReplace.exercise.name && $0.exercise.id.isEmpty)
