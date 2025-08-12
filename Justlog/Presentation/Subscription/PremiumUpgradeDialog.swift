@@ -8,6 +8,11 @@ struct PremiumUpgradeDialog: View {
     let title: String
     let message: String
     
+    private var dialogBackgroundColor: Color {
+        // Use background color to match the main app background
+        return themeManager?.colors.background ?? LightThemeColors.background
+    }
+    
     init(
         onDismiss: @escaping () -> Void,
         onUpgrade: @escaping () -> Void,
@@ -143,7 +148,7 @@ struct PremiumUpgradeDialog: View {
         .padding(MaterialSpacing.xl)
         .background(
             RoundedRectangle(cornerRadius: MaterialCornerRadius.large)
-                .fill(themeManager?.colors.surface ?? LightThemeColors.surface)
+                .fill(dialogBackgroundColor)
         )
         .shadow(
             color: (themeManager?.colors.shadow ?? LightThemeColors.shadow).opacity(0.2),

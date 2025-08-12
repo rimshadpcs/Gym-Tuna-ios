@@ -11,6 +11,7 @@ struct HomeScreen: View {
     @ObservedObject var viewModel: HomeViewModel
     @ObservedObject var workoutSessionManager: WorkoutSessionManager
     @Environment(\.themeManager) private var themeManager
+    @State private var showPremiumUpgrade = false
     
     // Navigation actions
     let onSignOut: () -> Void
@@ -131,7 +132,7 @@ struct HomeScreen: View {
                                     if viewModel.hiddenWorkoutCount > 0 {
                                         HiddenRoutinesPrompt(
                                             hiddenCount: viewModel.hiddenWorkoutCount,
-                                            onUpgrade: onNavigateToSubscription
+                                            onUpgrade: { showPremiumUpgrade = true }
                                         )
                                         .padding(.horizontal, MaterialSpacing.screenHorizontal)
                                     }
@@ -194,6 +195,26 @@ struct HomeScreen: View {
         }
         .onAppear {
             AnalyticsManager.shared.logScreenView(screenName: "Home")
+        }
+        .sheet(isPresented: $showPremiumUpgrade) {
+            ZStack {
+                (themeManager?.colors.background ?? LightThemeColors.background)
+                    .ignoresSafeArea()
+                
+                PremiumUpgradeDialog(
+                    onDismiss: {
+                        showPremiumUpgrade = false
+                    },
+                    onUpgrade: {
+                        showPremiumUpgrade = false
+                        onNavigateToSubscription()
+                    },
+                    title: "Unlock More Routines",
+                    message: "You're making great progress! Ready to unlock unlimited routines and take your fitness to the next level?"
+                )
+            }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
         }
     }
     
@@ -260,7 +281,7 @@ struct HomeScreen: View {
                 Button(action: onUpgrade) {
                     Text("Upgrade")
                         .vagFont(size: 13, weight: .medium)
-                        .foregroundColor(.white)
+                        .foregroundColor(themeManager?.colors.surface ?? .white)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 6)
                         .background(

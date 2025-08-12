@@ -157,17 +157,24 @@ struct CounterView: View {
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
             case .premium:
-                PremiumUpgradeDialog(
-                    onDismiss: {
-                        activeSheet = nil
-                    },
-                    onUpgrade: {
-                        activeSheet = nil
-                        onNavigateToSubscription()
-                    },
-                    title: "Ready for More Counters?",
-                    message: "You're tracking great! Ready to unlock unlimited counters and premium features?"
-                )
+                ZStack {
+                    (themeManager?.colors.background ?? LightThemeColors.background)
+                        .ignoresSafeArea()
+                    
+                    PremiumUpgradeDialog(
+                        onDismiss: {
+                            activeSheet = nil
+                        },
+                        onUpgrade: {
+                            activeSheet = nil
+                            onNavigateToSubscription()
+                        },
+                        title: "Ready for More Counters?",
+                        message: "You're tracking great! Ready to unlock unlimited counters and premium features?"
+                    )
+                }
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
             }
         }
         .onChange(of: viewModel.showPremiumBenefits) { showPremium in
