@@ -24,6 +24,7 @@ struct HomeScreen: View {
     let onNavigateToWorkout: (String?, String?) -> Void
     let onNavigateToCounter: () -> Void
     let onNavigateToRoutinePreview: (String) -> Void
+    let onNavigateToSubscription: () -> Void
     
     init(
         viewModel: HomeViewModel,
@@ -38,7 +39,8 @@ struct HomeScreen: View {
         onNavigateToHistory: @escaping () -> Void,
         onNavigateToWorkout: @escaping (String?, String?) -> Void,
         onNavigateToCounter: @escaping () -> Void,
-        onNavigateToRoutinePreview: @escaping (String) -> Void
+        onNavigateToRoutinePreview: @escaping (String) -> Void,
+        onNavigateToSubscription: @escaping () -> Void
     ) {
         self.viewModel = viewModel
         self.workoutSessionManager = workoutSessionManager
@@ -53,6 +55,7 @@ struct HomeScreen: View {
         self.onNavigateToWorkout = onNavigateToWorkout
         self.onNavigateToCounter = onNavigateToCounter
         self.onNavigateToRoutinePreview = onNavigateToRoutinePreview
+        self.onNavigateToSubscription = onNavigateToSubscription
     }
     
     var body: some View {
@@ -128,9 +131,7 @@ struct HomeScreen: View {
                                     if viewModel.hiddenWorkoutCount > 0 {
                                         HiddenRoutinesPrompt(
                                             hiddenCount: viewModel.hiddenWorkoutCount,
-                                            onUpgrade: {
-                                                // TODO: Navigate to subscription
-                                            }
+                                            onUpgrade: onNavigateToSubscription
                                         )
                                         .padding(.horizontal, MaterialSpacing.screenHorizontal)
                                     }

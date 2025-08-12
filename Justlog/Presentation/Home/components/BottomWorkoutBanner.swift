@@ -11,6 +11,7 @@ import Foundation
 struct BottomWorkoutBanner: View {
     @Environment(\.themeManager) private var themeManager
     @StateObject private var sessionManager = WorkoutSessionManager.shared
+    @State private var showDiscardConfirmation = false
     let workout: Workout
     let onResumeClick: () -> Void
     let onDiscardClick: () -> Void
@@ -57,7 +58,7 @@ struct BottomWorkoutBanner: View {
             // Action buttons like original
             HStack(spacing: 12) {
                 // Red X button for discard
-                Button(action: onDiscardClick) {
+                Button(action: { showDiscardConfirmation = true }) {
                     Image(systemName: "xmark")
                         .font(.system(size: 16, weight: .medium))
                         .foregroundColor(.red)
@@ -107,5 +108,16 @@ struct BottomWorkoutBanner: View {
         )
         .padding(.horizontal)
         .padding(.bottom)
+        .alert("Close Workout", isPresented: $showDiscardConfirmation) {
+            Button("Cancel", role: .cancel) {
+                showDiscardConfirmation = false
+            }
+            Button("Discard Workout", role: .destructive) {
+                onDiscardClick()
+                showDiscardConfirmation = false
+            }
+        } message: {
+            Text("This will close and you will be unable to continue. Are you sure you want to discard this workout?")
+        }
     }
 }

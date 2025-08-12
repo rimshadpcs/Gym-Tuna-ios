@@ -178,6 +178,9 @@ struct NavGraph: View {
             onNavigateToRoutinePreview: { routineId in
                 routinePreviewId = routineId
                 coordinator.navigate(to: .routinePreview)
+            },
+            onNavigateToSubscription: {
+                coordinator.navigate(to: .subscription)
             }
         )
     }
