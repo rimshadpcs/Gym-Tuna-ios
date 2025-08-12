@@ -382,8 +382,30 @@ struct SettingsView: View {
     }
     
     private func shareApp() {
-        let shareText = "Check out this awesome gym tracking app: https://play.google.com/store/apps/details?id=com.rimapps.justlog"
+        // TODO: Replace with actual App Store ID once app is published
+        // Format: https://apps.apple.com/app/id[YOUR_APP_ID]
+        let appStoreURL = "https://apps.apple.com/app/justlog/id6749898793"
+        let fallbackURL = "https://justlog.app" // Your website as fallback
+        
+        let shareText = """
+        💪 Check out JustLog - the ultimate workout tracking app!
+        
+        🏋️‍♂️ Track your workouts
+        📊 Monitor your progress
+        ⏱️ Built-in rest timer
+        🎯 Custom routines
+        
+        Download now: \(appStoreURL)
+        """
+        
         let activityVC = UIActivityViewController(activityItems: [shareText], applicationActivities: nil)
+        
+        // Configure for iPad
+        if let popover = activityVC.popoverPresentationController {
+            popover.sourceView = UIApplication.shared.windows.first
+            popover.sourceRect = CGRect(x: UIScreen.main.bounds.width / 2, y: UIScreen.main.bounds.height / 2, width: 0, height: 0)
+            popover.permittedArrowDirections = []
+        }
         
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
            let window = windowScene.windows.first {
