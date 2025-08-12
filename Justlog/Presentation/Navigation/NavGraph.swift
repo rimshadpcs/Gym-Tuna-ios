@@ -215,15 +215,25 @@ struct NavGraph: View {
                 coordinator.pop()
             },
             onExerciseSelected: { exercise in
-                print("🚀 NavGraph: Exercise selected: \(exercise.name) from source: \(fromSource ?? "routine")")
+                print("🚀 NAVGRAPH EXERCISE SELECTION CALLBACK START")
+                print("🚀 NavGraph: Exercise selected: \(exercise.name)")
+                print("🚀 Exercise ID: \(exercise.id)")
+                print("🚀 Current route: \(coordinator.currentRoute)")
+                print("🚀 Route parameters: \(coordinator.getRouteParameters(coordinator.currentRoute))")
+                print("🚀 fromSource: \(fromSource ?? "nil")")
                 
                 // Check if we're in replacement mode based on the source
                 let isReplacement = fromSource == "workout_replace"
+                print("🚀 Calculated isReplacement: \(isReplacement)")
                 
                 // Send exercise through ExerciseChannel with replacement flag
+                print("🚀 About to send exercise via ExerciseChannel...")
                 ExerciseChannel.shared.sendExercise(exercise, isReplacement: isReplacement)
-                print("🔙 NavGraph: Navigating back (exercise sent via ExerciseChannel, replacement: \(isReplacement))")
+                print("🚀 Exercise sent via ExerciseChannel successfully")
+                print("🔙 NavGraph: About to navigate back...")
                 coordinator.pop()
+                print("🔙 NavGraph: Navigation back completed")
+                print("🚀 NAVGRAPH EXERCISE SELECTION CALLBACK END")
             },
             onCreateExercise: {
                 coordinator.navigate(to: .createExercise)

@@ -195,8 +195,12 @@ struct ExerciseSearchView: View {
                                 ExerciseItemView(
                                     exercise: exercise,
                                     onTap: { 
+                                        print("🎯 EXERCISE SELECTION FLOW START")
                                         print("🎯 ExerciseSearchView: Exercise tapped: \(exercise.name)")
+                                        print("🎯 Exercise ID: \(exercise.id)")
+                                        print("🎯 About to call onExerciseSelected callback...")
                                         onExerciseSelected(exercise)
+                                        print("🎯 onExerciseSelected callback completed")
                                     }
                                 )
                                 .padding(.horizontal, MaterialSpacing.screenHorizontal)

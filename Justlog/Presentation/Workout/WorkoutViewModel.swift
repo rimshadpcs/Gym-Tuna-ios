@@ -327,22 +327,45 @@ class WorkoutViewModel: ObservableObject {
     }
     
     func checkForPendingExercises() {
-        if ExerciseChannel.shared.hasPendingExercise() {
+        print("🎁 CHECK FOR PENDING EXERCISES START")
+        print("🎁 Current ViewModel state:")
+        print("🎁   - isReplacingExercise: \(isReplacingExercise)")
+        print("🎁   - exerciseToReplace: \(exerciseToReplace?.exercise.name ?? "nil")")
+        print("🎁   - exercises count: \(exercises.count)")
+        
+        let hasPending = ExerciseChannel.shared.hasPendingExercise()
+        print("🎁 ExerciseChannel.hasPendingExercise(): \(hasPending)")
+        
+        if hasPending {
+            print("🎁 About to consume exercise from channel...")
             let result = ExerciseChannel.shared.consumeExercise()
+            print("🎁 Consumption result:")
+            print("🎁   - exercise: \(result.exercise?.name ?? "nil")")
+            print("🎁   - isReplacement: \(result.isReplacement)")
+            
             if let pendingExercise = result.exercise {
-                print("🎁 WorkoutViewModel: Processing pending exercise after initialization: \(pendingExercise.name) - isReplacement: \(result.isReplacement)")
+                print("🎁 WorkoutViewModel: Processing pending exercise: \(pendingExercise.name) - isReplacement: \(result.isReplacement)")
                 
                 if result.isReplacement {
                     // This is a replacement operation
-                    print("🔄 WorkoutViewModel: Processing as replacement after initialization")
+                    print("🔄 WorkoutViewModel: ROUTING TO REPLACEMENT LOGIC")
+                    print("🔄 About to call confirmReplaceExercise with: \(pendingExercise.name)")
                     confirmReplaceExercise(pendingExercise)
+                    print("🔄 confirmReplaceExercise call completed")
                 } else {
                     // This is a regular add operation
-                    print("➕ WorkoutViewModel: Processing as regular add after initialization")
+                    print("➕ WorkoutViewModel: ROUTING TO ADD LOGIC")
+                    print("➕ About to call addExercise with: \(pendingExercise.name)")
                     addExercise(pendingExercise)
+                    print("➕ addExercise call completed")
                 }
+            } else {
+                print("❌ Exercise was nil despite hasPendingExercise being true")
             }
+        } else {
+            print("ℹ️ No pending exercises in channel")
         }
+        print("🎁 CHECK FOR PENDING EXERCISES END")
     }
     
     func initializeFromSession() {
@@ -669,21 +692,28 @@ class WorkoutViewModel: ObservableObject {
     }
     
     func replaceExercise(_ workoutExercise: WorkoutExercise) {
-        print("replaceExercise called for \(workoutExercise.exercise.name)")
+        print("🔄 REPLACE EXERCISE FLOW START")
+        print("🔄 replaceExercise called for: \(workoutExercise.exercise.name)")
+        print("🔄 Current exercises count: \(exercises.count)")
+        print("🔄 Current exercises: \(exercises.map { $0.exercise.name })")
 
         guard let currentExercise = exercises.first(where: { 
             $0.exercise.id == workoutExercise.exercise.id || ($0.exercise.name == workoutExercise.exercise.name && $0.exercise.id.isEmpty)
         }) else { 
-            print("Could not find exercise to replace: \(workoutExercise.exercise.name)")
+            print("❌ Could not find exercise to replace: \(workoutExercise.exercise.name)")
             return
         }
 
         exerciseToReplace = currentExercise
         isReplacingExercise = true
-        print("Exercise replacement mode activated for: \(currentExercise.exercise.name)")
+        print("✅ Exercise replacement mode activated for: \(currentExercise.exercise.name)")
+        print("✅ exerciseToReplace set to: \(exerciseToReplace?.exercise.name ?? "nil")")
+        print("✅ isReplacingExercise set to: \(isReplacingExercise)")
         
         // Clear any pending exercises from channel to ensure clean state
         ExerciseChannel.shared.clearPendingExercise()
+        print("🧹 Cleared pending exercises from channel")
+        print("🔄 REPLACE EXERCISE FLOW: Ready for navigation")
     }
     
     func cancelReplaceExercise() {
@@ -693,18 +723,33 @@ class WorkoutViewModel: ObservableObject {
     }
     
     func confirmReplaceExercise(_ newExercise: Exercise) {
-        guard let exerciseToReplace = exerciseToReplace else { return }
+        print("🔄 CONFIRM REPLACE EXERCISE START")
+        print("🔄 New exercise: \(newExercise.name) (ID: \(newExercise.id))")
+        print("🔄 exerciseToReplace: \(exerciseToReplace?.exercise.name ?? "nil")")
+        print("🔄 Current exercises before replacement: \(exercises.map { $0.exercise.name })")
+        
+        guard let exerciseToReplace = exerciseToReplace else { 
+            print("❌ exerciseToReplace is nil - cannot proceed with replacement")
+            return 
+        }
+
+        print("🔄 Exercise to replace: \(exerciseToReplace.exercise.name) (ID: \(exerciseToReplace.exercise.id))")
 
         // Immediately reset replacement state to prevent double-triggering
         self.exerciseToReplace = nil
         isReplacingExercise = false
+        print("🔄 Reset replacement state")
 
         guard let index = exercises.firstIndex(where: { 
             $0.exercise.id == exerciseToReplace.exercise.id || ($0.exercise.name == exerciseToReplace.exercise.name && $0.exercise.id.isEmpty)
         }) else { 
-            print("Could not find exercise index for replacement")
+            print("❌ Could not find exercise index for replacement")
+            print("❌ Looking for: \(exerciseToReplace.exercise.name) (ID: \(exerciseToReplace.exercise.id))")
+            print("❌ Current exercises: \(exercises.enumerated().map { "\($0.offset): \($0.element.exercise.name) (ID: \($0.element.exercise.id))" })")
             return
         }
+        
+        print("✅ Found exercise to replace at index: \(index)")
         
         // Create new WorkoutExercise with the new exercise but keep existing sets structure
         let newWorkoutExercise = WorkoutExercise(
@@ -727,14 +772,24 @@ class WorkoutViewModel: ObservableObject {
         )
         
         exercises[index] = newWorkoutExercise
+        print("🔄 Updated exercises array at index \(index)")
+        
         calculateStats()
+        print("🔄 Calculated stats")
+        
         updateSessionExercises()
+        print("🔄 Updated session exercises")
+        
         isRoutineModified = currentRoutineId != nil
+        print("🔄 Set routine modified flag: \(isRoutineModified)")
         
         // Trigger feedback
         lastExerciseOperation = .replaced(exerciseToReplace.exercise.name, newExercise.name)
+        print("🔄 Set lastExerciseOperation to replaced")
         
-        print("Successfully replaced \(exerciseToReplace.exercise.name) with \(newExercise.name)")
+        print("✅ Successfully replaced \(exerciseToReplace.exercise.name) with \(newExercise.name)")
+        print("🔄 Current exercises after replacement: \(exercises.map { $0.exercise.name })")
+        print("🔄 CONFIRM REPLACE EXERCISE END")
     }
     
     // MARK: - Rest Timer

@@ -144,23 +144,32 @@ struct WorkoutScreen: View {
             // THEN check for pending exercises from ExerciseChannel (similar to Kotlin LaunchedEffect)
             // Use async dispatch to ensure initialization completes first
             DispatchQueue.main.async {
+                print("🏋️ WORKOUT SCREEN: About to call checkForPendingExercises...")
                 // Let the ViewModel handle ExerciseChannel consumption - it has the proper logic
                 // for distinguishing between add and replace operations
                 viewModel.checkForPendingExercises()
+                print("🏋️ WORKOUT SCREEN: checkForPendingExercises call completed")
             }
         }
         .onReceive(viewModel.$lastExerciseOperation) { operation in
-            guard let operation = operation else { return }
+            print("🎉 WORKOUT SCREEN: Received exercise operation update: \(operation?.message ?? "nil")")
+            guard let operation = operation else { 
+                print("🎉 WORKOUT SCREEN: Operation is nil, ignoring")
+                return 
+            }
             
+            print("🎉 WORKOUT SCREEN: Setting feedback message: \(operation.message)")
             exerciseFeedbackMessage = operation.message
             withAnimation {
                 showExerciseFeedback = true
+                print("🎉 WORKOUT SCREEN: Showing feedback toast")
             }
             
             // Hide feedback after 2 seconds
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
                 withAnimation {
                     showExerciseFeedback = false
+                    print("🎉 WORKOUT SCREEN: Hiding feedback toast")
                 }
             }
         }
@@ -426,8 +435,11 @@ struct WorkoutScreen: View {
                             viewModel.arrangeExercise(workoutExercise)
                         },
                         onReplaceExercise: { workoutExercise in
+                            print("🔄 WORKOUT SCREEN: Replace exercise button tapped for: \(workoutExercise.exercise.name)")
                             viewModel.replaceExercise(workoutExercise)
+                            print("🔄 WORKOUT SCREEN: About to call navigation callback...")
                             onReplaceExercise()
+                            print("🔄 WORKOUT SCREEN: Navigation callback completed")
                         },
                         onAddToSuperset: { workoutExercise in
                             viewModel.addToSuperset(workoutExercise)
