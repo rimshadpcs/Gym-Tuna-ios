@@ -679,7 +679,7 @@ func buildDisplayString(
         components.append("\(reps)")
     }
     
-    return components.isEmpty ? "--" : components.joined(separator: "\n")
+    return components.isEmpty ? "--" : components.joined(separator: " x ")
 }
 
 // MARK: - Helper Structs
