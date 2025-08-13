@@ -146,11 +146,11 @@ struct SettingsView: View {
                         }
                         
                         // Developer Section (for testing premium features)
-                        SettingsSection(title: "🛠️ Developer Testing") {
-                            VStack(spacing: 0) {
-                                developerPremiumToggle
-                            }
-                        }
+                        // SettingsSection(title: "🛠️ Developer Testing") {
+                        //     VStack(spacing: 0) {
+                        //         developerPremiumToggle
+                        //     }
+                        // }
                     }
                     .padding(.horizontal, MaterialSpacing.screenHorizontal)
                     .padding(.bottom, MaterialSpacing.lg)

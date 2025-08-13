@@ -261,7 +261,7 @@ struct SetRowComponent: View {
         return HStack(spacing: 6) { // Better spacing with more room available
             if showWeightField {
                 TextField((weightUnit == .kg) ? "kg" : "lb", text: $weightText)
-                    .keyboardType(.numbersAndPunctuation)
+                    .keyboardType(.decimalPad)
                     .multilineTextAlignment(.center)
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(themeManager.colors.onSurface)
@@ -295,7 +295,7 @@ struct SetRowComponent: View {
             
             if showDistanceField {
                 TextField((distanceUnit == .km) ? "km" : "mi", text: $distanceText)
-                    .keyboardType(.numbersAndPunctuation)
+                    .keyboardType(.decimalPad)
                     .multilineTextAlignment(.center)
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(themeManager.colors.onSurface)
@@ -363,7 +363,7 @@ struct SetRowComponent: View {
             
             if showRepsField {
                 TextField("reps", text: $repsText)
-                    .keyboardType(.numbersAndPunctuation)
+                    .keyboardType(.decimalPad)
                     .multilineTextAlignment(.center)
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(themeManager.colors.onSurface)

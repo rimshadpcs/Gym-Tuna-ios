@@ -248,7 +248,7 @@ struct ProfileView: View {
                 }) {
                     Text("Sign Out")
                         .vagFont(size: 16, weight: .medium)
-                        .foregroundColor(.white)
+                        .foregroundColor(themeManager?.colors.onPrimary ?? .white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, MaterialSpacing.md)
                         .background(
