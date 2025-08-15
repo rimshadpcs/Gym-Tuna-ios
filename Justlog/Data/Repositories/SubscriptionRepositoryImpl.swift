@@ -107,7 +107,7 @@ class SubscriptionRepositoryImpl: SubscriptionRepository {
         do {
             logger.info("Restoring purchases...")
             
-            // Get all transactions for the user
+            // Use StoreKit 2 transaction verification directly
             var activeSubscription: UserSubscription?
             
             for await result in StoreKit.Transaction.currentEntitlements {
@@ -245,6 +245,7 @@ class SubscriptionRepositoryImpl: SubscriptionRepository {
             case .success(let verification):
                 let transaction = try verifyTransaction(verification)
                 
+                // StoreKit 2 already handles verification - no need for additional receipt validation
                 let purchasedSubscription = UserSubscription(
                     tier: .premium,
                     isActive: true,
@@ -255,6 +256,7 @@ class SubscriptionRepositoryImpl: SubscriptionRepository {
                 try await updateSubscription(purchasedSubscription)
                 await transaction.finish()
                 
+                logger.info("Purchase completed and validated successfully")
                 return .success(purchasedSubscription)
                 
             case .userCancelled:
@@ -422,6 +424,7 @@ class SubscriptionRepositoryImpl: SubscriptionRepository {
         subscriptionSubject.send(freeSubscription)
     }
     
+    
     deinit {
         updateListenerTask?.cancel()
     }
@@ -435,6 +438,9 @@ enum SubscriptionError: LocalizedError {
     case purchasePending
     case noActivePurchases
     case unknownError
+    case receiptValidationFailed
+    case networkError
+    case serverError(Int)
     
     var errorDescription: String? {
         switch self {
@@ -450,6 +456,25 @@ enum SubscriptionError: LocalizedError {
             return "No active purchases found to restore"
         case .unknownError:
             return "An unknown error occurred"
+        case .receiptValidationFailed:
+            return "Receipt validation failed. Please try again or contact support."
+        case .networkError:
+            return "Network error occurred during validation. Please check your connection."
+        case .serverError(let code):
+            return "Server validation failed with code \(code). Please try again later."
+        }
+    }
+    
+    var recoverySuggestion: String? {
+        switch self {
+        case .receiptValidationFailed, .networkError:
+            return "Please ensure you have an active internet connection and try again."
+        case .serverError:
+            return "This appears to be a temporary issue. Please try again in a few minutes."
+        case .noActivePurchases:
+            return "If you believe you have an active subscription, try restoring purchases or contact support."
+        default:
+            return nil
         }
     }
 }
